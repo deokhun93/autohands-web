@@ -105,6 +105,12 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .field input:focus,.field textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,164,76,.2);background:#fff}
 .field .hint{font-size:12px;color:var(--sub)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pw{position:relative}
+.pw input{padding-right:48px}
+.pw-eye{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:42px;height:42px;display:grid;place-items:center;border:0;background:none;color:#6B7280;border-radius:8px;cursor:pointer}
+.pw-eye:focus-visible{outline:2px solid var(--gold)}
+.auto{display:flex;gap:10px;align-items:center;font-size:14px;color:#3A4252;cursor:pointer;user-select:none}
+.auto input{width:20px;height:20px;accent-color:var(--ink);flex:none;margin:0}
 .agree{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#4A5262;background:var(--muted);border-radius:10px;padding:12px}
 .agree input{width:18px;height:18px;margin-top:2px;accent-color:var(--ink);flex:none}
 .form-err{color:var(--err);font-size:13.5px;margin:0;font-weight:500}
@@ -219,6 +225,12 @@ const I={
   refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
   info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
 };
+I.eye='<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';
+I.eyeOff='<path d="M10.6 5.1A10.7 10.7 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.2 3.2"/><path d="M6.6 6.6C3.9 8.3 2 12 2 12s3.5 7 10 7c1.9 0 3.5-.5 4.9-1.3"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/>';
+const pwBox=(id,ac,ph)=>`<div class="pw"><input id="${id}" type="password" autocomplete="${ac}" autocapitalize="none" spellcheck="false"${ph?` placeholder="${ph}"`:''}><button type="button" class="pw-eye" data-act="pw-eye" data-for="${id}" aria-label="비밀번호 보기" aria-pressed="false">${ic('eye',20)}</button></div>`;
+const AUTO_KEY='ah-auto-login', ALIVE_KEY='ah-alive';
+const getAuto=()=>{ try{ return localStorage.getItem(AUTO_KEY)!=='0'; }catch(_){ return true; } };
+function setAuto(on){ try{ localStorage.setItem(AUTO_KEY,on?'1':'0'); sessionStorage.setItem(ALIVE_KEY,'1'); }catch(_){} }
 const ic=(n,s)=>`<svg class="i" viewBox="0 0 24 24"${s?` style="width:${s}px;height:${s}px"`:''} aria-hidden="true">${I[n]}</svg>`;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const $=s=>document.querySelector(s);
@@ -330,12 +342,13 @@ function authView(){
     <div class="field"><label for="su-phone">휴대폰 번호</label><input id="su-phone" inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></div></div>
     <div class="field"><label for="su-car">차량번호</label><input id="su-car" placeholder="예: 12가 3456"><span class="hint">계약하신 휴대폰 번호·차량번호와 같아야 연결돼요.</span></div>
     <div class="field"><label for="su-id">아이디</label><input id="su-id" autocomplete="username" autocapitalize="none" placeholder="영문 소문자·숫자 4~20자"></div>
-    <div class="two"><div class="field"><label for="su-pw">비밀번호</label><input id="su-pw" type="password" autocomplete="new-password" placeholder="8자 이상"></div>
-    <div class="field"><label for="su-pw2">비밀번호 확인</label><input id="su-pw2" type="password" autocomplete="new-password"></div></div>
+    <div class="two"><div class="field"><label for="su-pw">비밀번호</label>${pwBox('su-pw','new-password','8자 이상')}</div>
+    <div class="field"><label for="su-pw2">비밀번호 확인</label>${pwBox('su-pw2','new-password','')}</div></div>
     <label class="agree"><input type="checkbox" id="su-agree"><span>개인정보(이름, 휴대폰 번호, 차량번호) 수집·이용에 동의합니다. (필수) <button type="button" class="link" style="padding:0" data-act="policy">내용 보기</button></span></label>`
   :`
     <div class="field"><label for="li-id">아이디</label><input id="li-id" autocomplete="username" autocapitalize="none"></div>
-    <div class="field"><label for="li-pw">비밀번호</label><input id="li-pw" type="password" autocomplete="current-password"></div>`}
+    <div class="field"><label for="li-pw">비밀번호</label>${pwBox('li-pw','current-password','')}</div>
+    <label class="auto"><input type="checkbox" id="li-auto" ${getAuto()?'checked':''}><span>자동 로그인</span></label>`}
     <p class="form-err" id="auth-err" role="alert">${esc(S.authErr)}</p>
     <button class="btn full" type="submit" ${S.busy?'disabled':''}>${S.busy?'처리 중...':su?'가입하기':'로그인'}<span class="arr">${ic('arrow')}</span></button>
   </form>
@@ -656,6 +669,13 @@ document.addEventListener('click',async e=>{
         ok:'실내세차를 신청했어요.'};
       renderLayer(); break;
     }
+    case 'pw-eye': {
+      const inp=document.getElementById(t.dataset.for); if(!inp) break;
+      const show=inp.type==='password'; inp.type=show?'text':'password';
+      t.innerHTML=ic(show?'eyeOff':'eye',20); t.setAttribute('aria-pressed',String(show)); t.setAttribute('aria-label',show?'비밀번호 숨기기':'비밀번호 보기');
+      inp.focus({preventScroll:true}); try{ const n=inp.value.length; inp.setSelectionRange(n,n); }catch(_){}
+      break;
+    }
     case 'push-on': if(!S.busy){ await enablePush(); } break;
     case 'install': if(deferredInstall){ deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall=null; render(); } break;
     case 'confirm': if(S.dialog&&S.dialog.run&&!S.busy){ const d=S.dialog; doRequest(d.run,d.ok); } break;
@@ -674,10 +694,15 @@ document.addEventListener('submit',async e=>{
   if(e.target.id==='auth-form'){
     S.authErr='';
     if(S.authTab==='login'){
-      if(!v('li-id')||!v('li-pw')){ S.authErr='아이디와 비밀번호를 입력해 주세요.'; render(); return; }
-      S.busy=true; render();
-      const {error}=await db.auth.signInWithPassword({email:toEmail(v('li-id')),password:document.getElementById('li-pw').value});
-      S.busy=false; if(error){ S.authErr=friendly(error); render(); }
+      // 화면을 다시 그리기 전에 입력값을 먼저 읽어 둠 (다시 그리면 입력칸이 비워짐)
+      const loginId=v('li-id'), loginPw=(document.getElementById('li-pw')||{}).value||'';
+      const pwShown=(document.getElementById('li-pw')||{}).type==='text';
+      if(!loginId||!loginPw){ S.authErr='아이디와 비밀번호를 입력해 주세요.'; render(); return; }
+      const autoOn=!!(document.getElementById('li-auto')||{}).checked;
+      setAuto(autoOn);
+      S.busy=true; render(); refillLogin(loginId,loginPw,autoOn,pwShown);
+      const {error}=await db.auth.signInWithPassword({email:toEmail(loginId),password:loginPw});
+      S.busy=false; if(error){ S.authErr=friendly(error); render(); refillLogin(loginId,'',autoOn,pwShown); }
       return;
     }
     const name=v('su-name'), phone=v('su-phone'), car=v('su-car'), id=v('su-id'), pw=document.getElementById('su-pw').value, pw2=document.getElementById('su-pw2').value;
@@ -688,7 +713,7 @@ document.addEventListener('submit',async e=>{
     else if(pw!==pw2){ S.authErr='비밀번호 확인이 맞지 않아요.'; }
     else if(!document.getElementById('su-agree').checked){ S.authErr='개인정보 수집·이용에 동의해 주세요.'; }
     if(S.authErr){ const keep={name,phone,car,id}; render(); refill(keep); return; }
-    S.busy=true; render(); refill({name,phone,car,id});
+    S.busy=true; render(); refill({name,phone,car,id}); setAuto(true);
     const {data,error}=await db.auth.signUp({email:toEmail(id),password:pw,options:{data:{account_type:'customer',login_id:id,name,phone,car_number:car}}});
     S.busy=false;
     if(error){ S.authErr=friendly(error); render(); refill({name,phone,car,id}); return; }
@@ -703,13 +728,21 @@ document.addEventListener('submit',async e=>{
     catch(err){ toast(friendly(err),true); }
   }
 });
+function refillLogin(id,pw,auto,shown){
+  const a=document.getElementById('li-id'), b=document.getElementById('li-pw'), c=document.getElementById('li-auto');
+  if(a) a.value=id; if(b){ b.value=pw; if(shown){ b.type='text'; const e=document.querySelector('[data-for="li-pw"]'); if(e){ e.innerHTML=ic('eyeOff',20); e.setAttribute('aria-pressed','true'); } } } if(c) c.checked=auto;
+}
 function refill(o){ const m={name:'su-name',phone:'su-phone',car:'su-car',id:'su-id'}; for(const k in o){ const el=document.getElementById(m[k]); if(el) el.value=o[k]; } }
 
 /* ---------- 시작 ---------- */
 let poll;
 async function boot(){
   if(!db){ S.ready=true; render(); return; }
-  const {data}=await db.auth.getSession();
+  let {data}=await db.auth.getSession();
+  // 자동 로그인을 끈 경우: 앱(브라우저)을 완전히 닫았다 열면 로그아웃
+  let alive=false; try{ alive=sessionStorage.getItem(ALIVE_KEY)==='1'; }catch(_){}
+  if(data.session && !getAuto() && !alive){ await db.auth.signOut(); data={session:null}; }
+  try{ sessionStorage.setItem(ALIVE_KEY,'1'); }catch(_){}
   S.session=data.session; S.ready=true;
   checkPush().then(()=>{ if(S.session) render(); });
   if(S.session) await loadAll(true); else render();
