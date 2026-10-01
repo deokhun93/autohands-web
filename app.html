@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>오토핸즈 고객 앱</title>
 <meta name="theme-color" content="#0C1422">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="오토핸즈">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230C1422'/%3E%3Cpath d='M32 54a17 17 0 0 0 17-17c0-5-2.5-9.5-7.3-13.4S33.2 13.9 32 8c-1.2 5.9-4.9 11.7-9.7 15.6S15 32 15 37a17 17 0 0 0 17 17z' fill='none' stroke='%23C9A44C' stroke-width='4'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap">
@@ -457,12 +464,23 @@ function alertsView(){
   ${S.notes.length?`<ul class="alerts">${S.notes.map(n=>`<li class="${n.is_read?'':'new'}"><span class="bubble">${ic(n.kind==='done'?'check':n.kind==='notice'?'bell':n.kind==='request'?'cal':'info')}</span><div class="grow"><time>${when(n.created_at)}</time><b>${esc(n.title)}</b><p>${esc(n.body)}</p></div></li>`).join('')}</ul>`
   :`<div class="empty">${ic('bell',28)}<p>아직 받은 알림이 없어요.<br>세차가 끝나면 여기에서 알려드려요.</p></div>`}`;
 }
+let deferredInstall=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;if(S.view==='me')render();});
+window.addEventListener('appinstalled',()=>{deferredInstall=null;toast('앱을 설치했어요. 홈 화면의 오토핸즈 아이콘으로 열어 주세요.');});
+const isStandalone=()=>window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent);
+function installCard(){
+  if(isStandalone()) return '';
+  return `<div class="card"><div class="row"><span class="bubble">${ic('home')}</span><div class="grow"><h2 class="h">홈 화면에 앱 설치</h2><p class="sub">${deferredInstall?'버튼을 누르면 휴대폰에 오토핸즈 앱이 설치돼요.':isIOS()?'Safari 아래쪽 공유 버튼(□↑) → "홈 화면에 추가"를 눌러 주세요.':'크롬 오른쪽 위 ⋮ 메뉴 → "앱 설치"를 눌러 주세요.'}</p></div></div>
+    ${deferredInstall?`<button type="button" class="btn full" data-act="install">앱 설치하기<span class="arr">${ic('arrow')}</span></button>`:''}</div>`;
+}
 function meView(){
   const p=S.profile;
   return `<div class="appbar"><h1 class="h">내 정보</h1></div>
   <div class="card"><div class="row"><span class="bubble">${ic('user')}</span><div class="grow"><h2 class="h">${esc(p.name||p.account_name)}</h2><p class="sub">아이디 ${esc(p.login_id)} · ${esc(maskPhone(p.phone))}</p></div></div>
     <dl class="kv"><dt>차량</dt><dd>${esc(p.car_number||'')}${p.car_model?' ('+esc(p.car_model)+')':''}</dd><dt>아파트</dt><dd>${esc([p.complex,p.unit].filter(Boolean).join(' '))}</dd><dt>이용권</dt><dd>${esc(planName())}</dd>${p.wash_weekday!=null?`<dt>지정 요일</dt><dd>${cycleText()} ${WDF[p.wash_weekday]}</dd>`:''}</dl></div>
   <div class="card"><div class="row"><span class="bubble">${ic('bell')}</span><div class="grow"><h2 class="h">휴대폰 알림</h2><p class="sub">세차 완료 알림을 휴대폰으로 받는 기능은 곧 열려요. 지금은 앱 알림함에서 확인하실 수 있어요.</p></div></div></div>
+  ${installCard()}
   <button type="button" class="btn2" data-act="logout">${ic('logout')}로그아웃</button>
   <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지</a> · <button type="button" class="link" data-act="policy">개인정보처리방침</button></p>`;
 }
@@ -599,6 +617,7 @@ document.addEventListener('click',async e=>{
         ok:'실내세차를 신청했어요.'};
       renderLayer(); break;
     }
+    case 'install': if(deferredInstall){ deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall=null; render(); } break;
     case 'confirm': if(S.dialog&&S.dialog.run&&!S.busy){ const d=S.dialog; doRequest(d.run,d.ok); } break;
   }
 });
@@ -663,5 +682,6 @@ async function boot(){
 }
 boot();
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
 </body>
 </html>

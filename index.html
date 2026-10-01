@@ -6,6 +6,13 @@
 <title>오토핸즈 | 대구 아파트 방문세차 전문기업</title>
 <meta name="description" content="대구 최대 규모의 아파트 방문세차 전문기업 오토핸즈. SONAX 정품샵 직접 운영, 손해배상·화재보험 가입, 멤버십 전용 스페셜 케어.">
 <meta name="theme-color" content="#0C1422">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="오토핸즈">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+
 <meta property="og:title" content="오토핸즈 | 아파트 방문세차의 새로운 기준">
 <meta property="og:description" content="편리함을 넘어, 믿고 맡길 수 있는 프리미엄 세차 서비스">
 <meta property="og:type" content="website">
@@ -528,5 +535,6 @@ form.addEventListener('submit',async e=>{
   document.getElementById('again').addEventListener('click',()=>{form.innerHTML=ORIG;document.getElementById('f-name').focus();});
 });
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}</script>
 </body>
 </html>
