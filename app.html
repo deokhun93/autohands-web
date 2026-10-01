@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>오토핸즈 고객 앱</title>
+<meta name="theme-color" content="#0C1422">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230C1422'/%3E%3Cpath d='M32 54a17 17 0 0 0 17-17c0-5-2.5-9.5-7.3-13.4S33.2 13.9 32 8c-1.2 5.9-4.9 11.7-9.7 15.6S15 32 15 37a17 17 0 0 0 17 17z' fill='none' stroke='%23C9A44C' stroke-width='4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#0C1422; --navy:#121D30; --paper:#F7F5F0; --card:#FFFFFF; --muted:#F1EEE6;
+  --gold:#C9A44C; --gold-2:#E2C77F; --gold-soft:#F1E7CC; --gold-dark:#8A6D25;
+  --text:#1B2433; --sub:#6B7280; --line:#E4E0D6; --line-2:#D9D4C7;
+  --ok:#DCEFE3; --ok-ink:#1F5136; --err:#B4472E;
+  --f:"Noto Sans KR",system-ui,sans-serif; --f-en:"Archivo","Noto Sans KR",sans-serif;
+  --shadow:0 1px 2px rgba(12,20,34,.05),0 8px 20px rgba(12,20,34,.05);
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#ECE8DF;color:var(--text);font-family:var(--f);font-size:15px;line-height:1.55;word-break:keep-all;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.shell{max-width:480px;margin:0 auto;min-height:100%;background:var(--paper);display:flex;flex-direction:column;position:relative;box-shadow:0 0 40px rgba(12,20,34,.08)}
+.screen{flex:1;padding:calc(env(safe-area-inset-top,0px) + 14px) 18px 24px;display:flex;flex-direction:column;gap:14px}
+.screen>*{flex-shrink:0}
+.with-nav .screen{padding-bottom:96px}
+
+.appbar{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.logo .mark{width:34px;height:34px;border-radius:9px;background:var(--ink);border:1px solid var(--gold);display:grid;place-items:center;color:var(--gold-2)}
+.logo .mark svg{width:18px;height:18px}
+.logo b{display:block;font-family:var(--f-en);font-weight:800;letter-spacing:.14em;font-size:15px;line-height:1.1}
+.logo small{display:block;font-family:var(--f-en);font-size:8.5px;letter-spacing:.2em;color:var(--sub);font-weight:600}
+.icon-btn{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--card);display:grid;place-items:center;position:relative}
+.icon-btn .badge{position:absolute;top:-3px;right:-3px;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:var(--ink);font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 4px}
+h1.h{font-size:22px;font-weight:900;letter-spacing:-.03em;line-height:1.3;margin:0}
+h2.h{font-size:16px;font-weight:700;margin:0}
+.sub{color:var(--sub);font-size:13px;margin:0}
+.note{color:var(--sub);font-size:12.5px;margin:0}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:var(--shadow)}
+.row{display:flex;align-items:center;gap:12px;min-width:0}
+.grow{flex:1;min-width:0}
+.bubble{width:40px;height:40px;border-radius:12px;background:var(--muted);border:1px solid var(--line);display:grid;place-items:center;color:var(--gold-dark);flex:none}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:14px}
+.kv dt{color:var(--sub)}.kv dd{margin:0;font-weight:500}
+
+/* hero */
+.hero{background:var(--ink);color:#fff;border-radius:20px;padding:20px 18px 18px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden;box-shadow:0 14px 30px rgba(12,20,34,.22)}
+.hero::after{content:"";position:absolute;right:-50px;top:-50px;width:170px;height:170px;border-radius:50%;background:radial-gradient(circle,rgba(201,164,76,.35),transparent 70%)}
+.hero>*{position:relative;z-index:1}
+.pill{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;background:rgba(226,199,127,.16);color:var(--gold-2)}
+.pill.light{background:var(--gold-soft);color:#6B5418}
+.pill.okp{background:var(--ok);color:var(--ok-ink)}
+.when{font-size:26px;font-weight:900;letter-spacing:-.03em;line-height:1.2}
+.hero .detail{margin:0;color:#C4CBD7;font-size:14px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px}
+.step{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:#7D889B;position:relative;text-align:center}
+.step .b{width:28px;height:28px;border-radius:50%;border:1px solid #3A475E;background:var(--ink);display:grid;place-items:center;position:relative;z-index:1;color:var(--ink)}
+.step .b svg{width:14px;height:14px;stroke-width:2.5}
+.step::before{content:"";position:absolute;top:13px;left:-50%;width:100%;border-top:1px dashed #3A475E}
+.step:first-child::before{display:none}
+.step.on{color:#fff}.step.on .b{background:var(--gold);border-color:var(--gold)}.step.on::before{border-top:1px solid var(--gold)}
+.step.now .b{background:var(--ink);border:2px solid var(--gold)}
+.step.now .b::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold-2)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:50px;padding:0 6px 0 20px;border-radius:12px;border:1px solid var(--ink);background:var(--ink);color:#fff;font-weight:700;transition:background .2s}
+.btn .arr{width:36px;height:36px;border-radius:9px;background:var(--gold);color:var(--ink);display:grid;place-items:center}
+.btn .arr svg{width:18px;height:18px}
+.btn:hover{background:#1A2740}
+.btn:disabled{background:#E7E3D9;border-color:#E7E3D9;color:#9A9384;cursor:not-allowed}
+.btn:disabled .arr{background:#D9D4C7;color:#9A9384}
+.btn.full{width:100%}
+.btn.plain{padding:0 20px}
+.btn2{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 18px;border-radius:12px;border:1px solid var(--line-2);background:var(--card);font-weight:700;transition:background .2s}
+.btn2:hover{background:var(--gold-soft)}
+.btn2.gold{border-color:var(--gold);color:var(--gold-dark)}
+.link{border:0;background:none;padding:6px;color:var(--sub);font-size:13px;font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.state{margin:0;display:flex;align-items:flex-start;gap:8px;font-size:13.5px;font-weight:700;background:var(--gold-soft);color:#5E4A16;border-radius:12px;padding:11px 12px}
+.state.ok{background:var(--ok);color:var(--ok-ink)}
+.state.warn{background:#F8E3DD;color:#7A2E1C}
+.state svg{width:18px;height:18px;margin-top:1px}
+
+/* forms */
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:12px;padding:4px;background:var(--card)}
+.seg button{border:0;border-radius:9px;min-height:42px;background:none;font-weight:700;color:var(--sub)}
+.seg button[aria-selected="true"]{background:var(--ink);color:var(--gold-2)}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:13px;font-weight:700}
+.field input,.field textarea{font:inherit;color:var(--text);background:var(--paper);border:1px solid var(--line-2);border-radius:10px;padding:12px 13px;width:100%}
+.field textarea{min-height:84px;resize:vertical}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(201,164,76,.2);background:#fff}
+.field .hint{font-size:12px;color:var(--sub)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.agree{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:#4A5262;background:var(--muted);border-radius:10px;padding:12px}
+.agree input{width:18px;height:18px;margin-top:2px;accent-color:var(--ink);flex:none}
+.form-err{color:var(--err);font-size:13.5px;margin:0;font-weight:500}
+.form-err:empty{display:none}
+.auth-hero{display:flex;flex-direction:column;align-items:center;gap:10px;padding:28px 0 6px;text-align:center}
+.auth-hero .big{width:76px;height:76px;border-radius:22px;background:var(--ink);border:1px solid var(--gold);display:grid;place-items:center;color:var(--gold-2)}
+.auth-hero .big svg{width:36px;height:36px}
+.auth-hero b{font-family:var(--f-en);font-weight:800;letter-spacing:.2em;font-size:20px}
+
+/* plan */
+.pass{display:flex;gap:6px}
+.pass span{flex:1;height:32px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center;font-size:11.5px;font-weight:700;color:var(--sub)}
+.pass span.used{background:var(--ink);color:var(--gold-2);border-color:var(--ink)}
+.wd-chip{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:14px;padding:5px 12px 5px 9px;border-radius:999px;background:var(--gold-soft);color:#6B5418}
+.wd-chip svg{width:16px;height:16px}
+.wk{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.wk button{min-height:52px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0}
+.wk button small{font-size:10px;color:var(--sub);font-weight:700}
+.wk button[aria-checked="true"]{background:var(--ink);color:var(--gold-2);border-color:var(--ink)}
+.wk button[aria-checked="true"] small{color:#fff}
+.wk button.cur{background:var(--gold-soft);border-color:var(--gold)}
+.wk button:disabled{cursor:default;color:#B5B0A3}
+.wk button.cur:disabled{color:var(--text)}
+.divider{border-top:1px dashed var(--line-2);margin:2px 0}
+
+/* messages */
+.my-msgs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.my-msgs li{max-width:88%;background:var(--ink);color:#fff;border-radius:14px 14px 3px 14px;padding:8px 12px}
+.my-msgs p{margin:0;font-size:13.5px;white-space:pre-wrap}
+.my-msgs time{font-size:11px;color:#AEB6C4}
+
+/* calendar */
+.cal-head{display:flex;align-items:center;justify-content:space-between}
+.cal-head .icon-btn:disabled{opacity:.3;cursor:default}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .wd{font-size:11px;font-weight:700;text-align:center;color:var(--sub)}
+.cal .wd.sun{color:#B4472E}
+.day{min-height:48px;border-radius:10px;border:1px solid transparent;background:none;padding:2px 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-weight:700;font-size:13.5px}
+.day small{font-size:9.5px;font-weight:700;line-height:1}
+.day.closed{color:var(--sub);cursor:default}
+.day.past{color:#C9C4B8;cursor:default}
+.day.open{background:var(--gold-soft);border-color:var(--gold)}
+.day.full{color:var(--sub);border-color:var(--line);background:repeating-linear-gradient(45deg,var(--muted) 0 4px,var(--card) 4px 8px);cursor:default}
+.day.sel{background:var(--ink);color:var(--gold-2);border-color:var(--ink)}
+.day.mine{outline:2px dashed var(--gold);outline-offset:1px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;font-weight:700;color:var(--sub)}
+.legend span{display:inline-flex;align-items:center;gap:5px}
+.lg{width:14px;height:14px;border-radius:4px;border:1px solid var(--line-2);display:inline-block}
+.lg.open{background:var(--gold-soft);border-color:var(--gold)}
+.lg.full{background:repeating-linear-gradient(45deg,var(--muted) 0 3px,var(--card) 3px 6px)}
+
+/* alerts */
+.alerts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.alerts li{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;box-shadow:var(--shadow)}
+.alerts li.new{border-color:var(--gold)}
+.alerts time{font-size:11.5px;color:var(--sub)}
+.alerts b{display:block;font-size:14.5px}
+.alerts p{margin:2px 0 0;font-size:13.5px;color:#4A5262;white-space:pre-wrap}
+.empty{text-align:center;padding:36px 12px;color:var(--sub)}
+
+/* nav */
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border-top:1px solid var(--line);padding:6px 10px calc(env(safe-area-inset-bottom,0px) + 8px);z-index:20}
+.nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:700;color:var(--sub);padding:5px 0;position:relative}
+.nav .ni{width:44px;height:30px;border-radius:999px;display:grid;place-items:center}
+.nav button[aria-current="page"]{color:var(--text)}
+.nav button[aria-current="page"] .ni{background:var(--ink);color:var(--gold-2)}
+.nav .dot{position:absolute;top:4px;right:calc(50% - 22px);width:8px;height:8px;border-radius:50%;background:var(--gold)}
+
+/* dialog & toast */
+.scrim{position:fixed;inset:0;background:rgba(12,20,34,.5);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.dialog{width:100%;max-width:400px;background:var(--paper);border-radius:20px;padding:22px 18px 18px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;box-shadow:0 20px 50px rgba(12,20,34,.3)}
+.dialog .date-big{margin:0;font-weight:900;font-size:18px;background:var(--gold-soft);border:1px solid var(--gold);border-radius:999px;padding:3px 14px}
+.dialog .acts{display:flex;gap:10px;width:100%;margin-top:6px}
+.dialog .acts>*{flex:1}
+.dialog pre{white-space:pre-wrap;text-align:left;font-family:inherit;font-size:12.5px;color:#4A5262;max-height:55vh;overflow:auto;margin:0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 90px);width:calc(100% - 36px);max-width:444px;background:var(--ink);color:#fff;border-radius:14px;padding:12px 14px;font-size:13.5px;z-index:60;display:flex;gap:10px;align-items:center;box-shadow:0 10px 30px rgba(12,20,34,.3)}
+.toast.err{background:#7A2E1C}
+.loading{display:grid;place-items:center;min-height:60vh;color:var(--sub);gap:12px}
+.spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--gold);animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell" id="shell">
+  <main class="screen" id="screen"><div class="loading"><div class="spin"></div>불러오는 중...</div></main>
+  <nav class="nav" id="nav" hidden aria-label="메뉴"></nav>
+</div>
+<div id="layer"></div>
+
+<script>
+const SUPABASE_URL='https://kkmmfbqiddirhbiqtqsu.supabase.co';
+const SUPABASE_KEY='sb_publishable_4UNSE0BXfpI5lp4uc-ulxA_EqldYgh-';
+const EMAIL_DOMAIN='customer.autohands.app';
+const db=window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}}):null;
+
+const I={
+  drop:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
+  bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+  home:'<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  car:'<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>',
+  arrow:'<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  back:'<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
+  clock:'<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  msg:'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  send:'<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+  cal:'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  sparkle:'<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/>',
+  logout:'<path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>',
+  refresh:'<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+  info:'<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
+};
+const ic=(n,s)=>`<svg class="i" viewBox="0 0 24 24"${s?` style="width:${s}px;height:${s}px"`:''} aria-hidden="true">${I[n]}</svg>`;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $=s=>document.querySelector(s);
+const WD=['일','월','화','수','목','금','토'], WDF=['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+const pad=n=>String(n).padStart(2,'0');
+const keyOf=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseKey=k=>{const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d);};
+const addDays=(k,n)=>{const d=parseKey(k);d.setDate(d.getDate()+n);return keyOf(d);};
+const kdate=k=>{const d=parseKey(k);return `${d.getMonth()+1}월 ${d.getDate()}일 (${WD[d.getDay()]})`;};
+const todayKey=()=>keyOf(new Date());
+const hm=ts=>{const d=new Date(ts);return `${pad(d.getHours())}:${pad(d.getMinutes())}`;};
+const when=ts=>{const d=new Date(ts),k=keyOf(d),t=todayKey();if(k===t)return '오늘 '+hm(ts);if(k===addDays(t,-1))return '어제 '+hm(ts);return `${d.getMonth()+1}월 ${d.getDate()}일 ${hm(ts)}`;};
+const maskPhone=p=>{const d=String(p||'').replace(/\D/g,'');return d.length>=10?`${d.slice(0,3)}-****-${d.slice(-4)}`:p;};
+const fmtPhone=v=>{let d=v.replace(/\D/g,'').slice(0,11);return d.length>7?`${d.slice(0,3)}-${d.slice(3,d.length-4)}-${d.slice(-4)}`:d.length>3?`${d.slice(0,3)}-${d.slice(3)}`:d;};
+const toEmail=id=>`${id.trim().toLowerCase()}@${EMAIL_DOMAIN}`;
+
+const S={
+  ready:false, session:null, profile:null, jobs:[], notes:[], reqs:[], slots:[],
+  view:'home', authTab:'login', dayEdit:false, daySel:null, cMonth:0, cDay:null,
+  msgDraft:'', busy:false, dialog:null, authErr:'', loadErr:''
+};
+
+/* ---------- 데이터 ---------- */
+function friendly(err){
+  const m=(err&&(err.message||err.error_description))||String(err||'');
+  if(/Invalid login credentials/i.test(m)) return '아이디 또는 비밀번호가 맞지 않아요.';
+  if(/already registered|already been registered|User already/i.test(m)) return '이미 사용 중인 아이디예요. 다른 아이디를 써 주세요.';
+  if(/Password should be|weak/i.test(m)) return '비밀번호는 8자 이상으로 정해 주세요.';
+  if(/rate limit/i.test(m)) return '잠시 후 다시 시도해 주세요.';
+  if(/Failed to fetch|NetworkError|network/i.test(m)) return '인터넷 연결을 확인한 뒤 다시 시도해 주세요.';
+  if(/[가-힣]/.test(m)) return m;
+  return '문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
+}
+async function rpc(name,args){
+  const {data,error}=await db.rpc(name,args||{});
+  if(error) throw error;
+  return data;
+}
+async function loadAll(silent){
+  if(!S.session) return;
+  try{
+    const prof=await rpc('get_my_profile');
+    S.profile=(prof&&prof[0])||null;
+    if(S.profile&&S.profile.linked){
+      const t=todayKey(), monthStart=t.slice(0,8)+'01';
+      const [jobs,notes,reqs]=await Promise.all([
+        rpc('get_my_jobs',{p_from:monthStart<addDays(t,-7)?monthStart:addDays(t,-7),p_to:addDays(t,42)}),
+        rpc('get_my_notifications',{p_limit:50}),
+        rpc('get_my_requests')
+      ]);
+      S.jobs=jobs||[]; S.notes=notes||[]; S.reqs=reqs||[];
+    }
+    S.loadErr='';
+  }catch(e){ S.loadErr=friendly(e); if(!silent) toast(S.loadErr,true); }
+  render();
+}
+async function loadSlots(){
+  try{ S.slots=await rpc('list_my_interior_slots',{p_from:addDays(todayKey(),1),p_to:addDays(todayKey(),92)})||[]; }
+  catch(e){ toast(friendly(e),true); S.slots=[]; }
+  render();
+}
+
+/* ---------- 화면: 로그인 / 가입 ---------- */
+function authView(){
+  const su=S.authTab==='signup';
+  return `<div class="auth-hero"><span class="big">${ic('drop')}</span><b>AUTOHANDS</b><p class="sub">오토핸즈 정기권 고객 전용</p></div>
+  <div class="seg" role="tablist"><button type="button" role="tab" aria-selected="${!su}" data-act="auth-tab" data-t="login">로그인</button><button type="button" role="tab" aria-selected="${su}" data-act="auth-tab" data-t="signup">회원가입</button></div>
+  <form id="auth-form" class="card" novalidate>
+  ${su?`
+    <div class="two"><div class="field"><label for="su-name">이름</label><input id="su-name" autocomplete="name"></div>
+    <div class="field"><label for="su-phone">휴대폰 번호</label><input id="su-phone" inputmode="tel" autocomplete="tel" placeholder="010-0000-0000"></div></div>
+    <div class="field"><label for="su-car">차량번호</label><input id="su-car" placeholder="예: 12가 3456"><span class="hint">계약하신 휴대폰 번호·차량번호와 같아야 연결돼요.</span></div>
+    <div class="field"><label for="su-id">아이디</label><input id="su-id" autocomplete="username" autocapitalize="none" placeholder="영문 소문자·숫자 4~20자"></div>
+    <div class="two"><div class="field"><label for="su-pw">비밀번호</label><input id="su-pw" type="password" autocomplete="new-password" placeholder="8자 이상"></div>
+    <div class="field"><label for="su-pw2">비밀번호 확인</label><input id="su-pw2" type="password" autocomplete="new-password"></div></div>
+    <label class="agree"><input type="checkbox" id="su-agree"><span>개인정보(이름, 휴대폰 번호, 차량번호) 수집·이용에 동의합니다. (필수) <button type="button" class="link" style="padding:0" data-act="policy">내용 보기</button></span></label>`
+  :`
+    <div class="field"><label for="li-id">아이디</label><input id="li-id" autocomplete="username" autocapitalize="none"></div>
+    <div class="field"><label for="li-pw">비밀번호</label><input id="li-pw" type="password" autocomplete="current-password"></div>`}
+    <p class="form-err" id="auth-err" role="alert">${esc(S.authErr)}</p>
+    <button class="btn full" type="submit" ${S.busy?'disabled':''}>${S.busy?'처리 중...':su?'가입하기':'로그인'}<span class="arr">${ic('arrow')}</span></button>
+  </form>
+  <p class="note" style="text-align:center">${su?'가입하면 담당 매니저가 계약 정보를 확인한 뒤 이용하실 수 있어요.':'아직 계정이 없으면 위의 회원가입을 눌러 주세요.'}</p>
+  <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지로</a></p>`;
+}
+
+/* ---------- 화면: 가입 확인 대기 ---------- */
+function pendingView(){
+  const p=S.profile||{}, rejected=p.account_status==='거절';
+  return `<div class="appbar">${logo()}<button type="button" class="icon-btn" data-act="logout" aria-label="로그아웃">${ic('logout')}</button></div>
+  <div><p class="sub">${esc(p.account_name||'')} 님, 반가워요</p><h1 class="h">${rejected?'가입이 승인되지 않았어요':'가입 확인 중이에요'}</h1></div>
+  <div class="card">
+    <p class="state ${rejected?'warn':''}">${ic(rejected?'info':'clock')}<span>${rejected?'입력하신 정보로 계약을 확인하지 못했어요. 정보를 고쳐서 다시 요청하시거나 담당 매니저에게 문의해 주세요.':'담당 매니저가 계약 정보를 확인하면 바로 이용하실 수 있어요. 확인되면 이 화면이 자동으로 바뀌어요.'}</span></p>
+    <dl class="kv"><dt>아이디</dt><dd>${esc(p.login_id||'')}</dd><dt>휴대폰</dt><dd>${esc(maskPhone(p.phone))}</dd><dt>차량번호</dt><dd>${esc(p.car_number||'')}</dd></dl>
+    ${!p.candidate_found||rejected?`${!rejected?`<p class="state warn">${ic('info')}<span>입력하신 휴대폰 번호·차량번호와 같은 계약 정보를 아직 찾지 못했어요. 계약 때 알려주신 정보로 고쳐 주세요.</span></p>`:''}
+      <form id="relink-form" style="display:flex;flex-direction:column;gap:10px">
+        <div class="two"><div class="field"><label for="rl-phone">휴대폰 번호</label><input id="rl-phone" inputmode="tel" value="${esc(fmtPhone(p.phone||''))}"></div>
+        <div class="field"><label for="rl-car">차량번호</label><input id="rl-car" value="${esc(p.car_number||'')}"></div></div>
+        <button class="btn2 gold" type="submit">${ic('refresh')}정보 고쳐서 다시 요청</button>
+      </form>`:''}
+  </div>
+  <button type="button" class="btn2" data-act="reload">${ic('refresh')}새로고침</button>`;
+}
+
+/* ---------- 화면: 홈 ---------- */
+function logo(){return `<a class="logo" href="/" aria-label="오토핸즈 홈페이지"><span class="mark">${ic('drop')}</span><span><b>AUTOHANDS</b><small>PREMIUM CAR WASH</small></span></a>`;}
+const unread=()=>S.notes.filter(n=>!n.is_read).length;
+function currentJob(){
+  const t=todayKey();
+  return S.jobs.find(j=>j.wash_date===t) || S.jobs.find(j=>j.wash_date>t && j.status==='대기') || null;
+}
+function nextFutureJob(){ const t=todayKey(); return S.jobs.find(j=>j.wash_date>t && j.status==='대기')||null; }
+function stepper(idx){
+  const L=['예약 확정','세차 대기','세차 완료'];
+  return `<div class="steps" aria-label="진행 단계">${L.map((l,i)=>`<div class="step ${i<=idx?'on':''} ${i===idx&&idx<2?'now':''}"><span class="b">${i<idx||idx===2?ic('check'):''}</span>${l}</div>`).join('')}</div>`;
+}
+function heroCard(){
+  const p=S.profile, j=currentJob(), t=todayKey();
+  if(!j){
+    return `<article class="hero"><span class="pill">${ic('cal',14)}다음 세차</span>
+      <div class="when">일정을 준비하고 있어요</div>
+      <p class="detail">${p.wash_weekday!=null?`지정 요일은 ${cycleText()} ${WDF[p.wash_weekday]}이에요. 일정이 잡히면 여기에 보여드릴게요.`:'세차 일정이 잡히면 여기에 보여드릴게요.'}</p></article>`;
+  }
+  const moved=j.moved_from?`<span class="pill">${ic('cal',14)}이 주만 변경 · 원래 ${kdate(j.moved_from)}</span>`:'';
+  const inter=j.interior?`<span class="pill">${ic('sparkle',14)}실내세차 포함</span>`:'';
+  if(j.wash_date>t){
+    return `<article class="hero"><span class="pill">예약 확정</span>
+      <div class="when">${kdate(j.wash_date)}</div>
+      <p class="detail">이 날 세차를 진행해요. 끝나면 완료 알림을 보내드려요.</p>${moved}${inter}${stepper(0)}</article>`;
+  }
+  if(j.status==='완료'){
+    return `<article class="hero"><span class="pill">세차 완료</span>
+      <div class="when">${j.done_at?hm(j.done_at)+' ':''}세차 완료</div>
+      <p class="detail">오늘 세차를 모두 마쳤어요. 이용해 주셔서 감사해요.</p>${inter}${stepper(2)}</article>`;
+  }
+  if(j.status==='미작업'){
+    return `<article class="hero"><span class="pill">미작업</span>
+      <div class="when">오늘은 세차를<br>하지 못했어요</div>
+      <p class="detail">다시 세차할 날짜를 담당 매니저가 안내해 드릴게요.</p></article>`;
+  }
+  const a=j.queue_ahead||0;
+  return `<article class="hero"><span class="pill">오늘 · 세차 대기</span>
+    <div class="when">${a===0?'다음 순서예요':`앞에 ${a}대 남았어요`}</div>
+    <p class="detail">오늘 세차가 진행돼요. 끝나면 바로 알려드릴게요.</p>${moved}${inter}${stepper(1)}</article>`;
+}
+function cycleText(){ const p=S.profile; return p.wash_plan===2?'격주':'매주'; }
+function planName(){ const p=S.profile; return p.product || (p.wash_plan?`월 ${p.wash_plan}회 정기권`:'정기권'); }
+function interiorState(){
+  const t=todayKey();
+  const r=S.reqs.find(r=>r.req_type==='interior' && r.target_date && r.target_date>=t && (r.status==='접수'||r.status==='승인'));
+  if(!r) return '';
+  return r.status==='승인'
+    ? `<p class="state ok">${ic('check')}<span>${kdate(r.target_date)} 실내세차가 확정되었어요</span></p>`
+    : `<p class="state">${ic('clock')}<span>${kdate(r.target_date)} 실내세차 신청됨 · 담당 매니저가 확인하고 있어요</span></p>`;
+}
+function homeView(){
+  const p=S.profile, j=currentJob();
+  const msgs=S.reqs.filter(r=>r.req_type==='msg').slice(0,2);
+  const ist=interiorState();
+  return `<div class="appbar">${logo()}<button type="button" class="icon-btn" data-act="go" data-v="alerts" aria-label="알림 ${unread()}개">${ic('bell')}${unread()?`<span class="badge">${unread()}</span>`:''}</button></div>
+  <div><p class="sub">${kdate(todayKey())}</p><h1 class="h">${esc(p.name||p.account_name)} 님, 내 차 세차 현황이에요</h1></div>
+  ${S.loadErr?`<p class="state warn">${ic('info')}<span>${esc(S.loadErr)}</span></p>`:''}
+  ${heroCard()}
+  <section class="card" aria-label="내 차량">
+    <div class="row"><span class="bubble">${ic('car')}</span><div class="grow"><h2 class="h">${esc(p.car_number||'')}</h2><p class="sub">${esc([p.car_model,p.car_color].filter(Boolean).join(' · '))}${p.car_model||p.car_color?' · ':''}${esc([p.complex,p.unit].filter(Boolean).join(' '))}</p></div></div>
+    <dl class="kv"><dt>세차 종류</dt><dd>${j&&j.interior?'외부 + 실내세차':'외부 세차'}</dd></dl>
+    ${ist||`<button type="button" class="btn2 gold" data-act="go" data-v="interior">${ic('sparkle')}실내세차 신청</button>`}
+  </section>
+  <section class="card" aria-labelledby="mgr-h">
+    <div class="row"><span class="bubble">${ic('msg')}</span><div class="grow"><h2 class="h" id="mgr-h">담당 매니저에게 메시지</h2><p class="sub">요청사항을 앱 알림으로 전달해요</p></div></div>
+    ${msgs.length?`<ul class="my-msgs">${msgs.map(m=>`<li><p>${esc(m.message)}</p><time>${when(m.created_at)} · ${m.status==='확인'?'매니저 확인':'전송됨'}</time></li>`).join('')}</ul>`:''}
+    <div class="field"><label for="msg">요구사항</label><textarea id="msg" maxlength="500" placeholder="예: 트렁크는 열지 말아주세요.">${esc(S.msgDraft)}</textarea></div>
+    <button type="button" class="btn full" id="msg-send" data-act="send-msg" ${S.msgDraft.trim()&&!S.busy?'':'disabled'}>매니저에게 보내기<span class="arr">${ic('send')}</span></button>
+  </section>
+  ${planCard()}`;
+}
+function planCard(){
+  const p=S.profile, t=todayKey(), ym=t.slice(0,7);
+  const used=S.jobs.filter(j=>j.status==='완료' && j.wash_date.slice(0,7)===ym).length;
+  const total=p.wash_plan||0;
+  const base=nextFutureJob(), baseKey=base&&base.wash_date;
+  const pend=baseKey&&S.reqs.find(r=>r.req_type==='schedule'&&r.base_date===baseKey&&r.status==='접수');
+  const appliedJob=S.jobs.find(j=>j.moved_from&&j.wash_date>=t);
+  let state='';
+  if(pend) state=`<p class="state">${ic('clock')}<span>${kdate(pend.base_date)} → ${kdate(pend.target_date)} 변경 요청됨 · 담당 매니저가 확인하고 있어요</span></p>`;
+  else if(appliedJob) state=`<p class="state ok">${ic('check')}<span>${kdate(appliedJob.wash_date)}로 이 주만 변경되었어요 · 다음 회차부터 다시 ${p.wash_weekday!=null?cycleText()+' '+WDF[p.wash_weekday]:'원래 요일'}</span></p>`;
+  let picker='';
+  if(S.dayEdit&&baseKey){
+    const d=parseKey(baseKey).getDay(), mon=addDays(baseKey,(d===0?-6:1-d));
+    picker=`<div class="divider"></div>
+      <p style="margin:0;font-weight:700;font-size:13px">일정 변경요청</p>
+      <p class="sub">${kdate(baseKey)} 회차를 같은 주 다른 날로 옮겨요</p>
+      <div class="wk" role="radiogroup" aria-label="변경할 날짜">${[0,1,2,3,4,5].map(i=>{const k=addDays(mon,i),cur=k===baseKey,past=k<=t;
+        return `<button type="button" role="radio" aria-checked="${S.daySel===k}" class="${cur?'cur':''}" data-act="day-sel" data-k="${k}" ${cur||past?'disabled':''}>${WD[parseKey(k).getDay()]}<small>${cur?'지정':parseKey(k).getDate()+'일'}</small></button>`;}).join('')}</div>
+      <p class="note">변경은 담당 매니저가 확인 후 적용됩니다. 이 주만 바뀌고, 다음 회차부터는 다시 원래 요일로 진행돼요.</p>
+      <div style="display:flex;gap:10px"><button type="button" class="btn2" style="flex:1" data-act="day-cancel">취소</button><button type="button" class="btn" style="flex:1.4" data-act="day-apply" ${S.daySel?'':'disabled'}>변경 요청<span class="arr">${ic('arrow')}</span></button></div>`;
+  }
+  return `<section class="card" aria-label="정기권">
+    <div class="row"><span class="bubble">${ic('clock')}</span><div class="grow"><h2 class="h">${esc(planName())}</h2><p class="sub">${total?`이번 달 ${total}회 중 ${Math.min(used,total)}회 이용`:`이번 달 ${used}회 이용`}</p></div></div>
+    ${total?`<div class="pass">${Array.from({length:total},(_,i)=>`<span class="${i<used?'used':''}">${i+1}회</span>`).join('')}</div>`:''}
+    ${p.wash_weekday!=null?`<div class="row" style="flex-wrap:wrap;gap:8px"><span class="wd-chip">${ic('cal')}${cycleText()} ${WDF[p.wash_weekday]}</span><span class="sub">지정 세차 요일${baseKey?' · 다음 회차 '+kdate(baseKey):''}</span></div>`:''}
+    ${state}
+    ${!S.dayEdit&&!pend?(baseKey?`<button type="button" class="btn2 gold" data-act="day-edit">${ic('cal')}희망 요일 변경</button>`:`<p class="note">다음 회차 일정이 잡히면 요일 변경을 요청할 수 있어요.</p>`):''}
+    ${picker}
+  </section>`;
+}
+
+/* ---------- 화면: 실내세차 ---------- */
+function interiorView(){
+  const p=S.profile, t=todayKey(), slots=Object.fromEntries(S.slots.map(s=>[s.slot_date,s]));
+  const mine=S.reqs.find(r=>r.req_type==='interior'&&r.target_date&&r.target_date>=t&&(r.status==='접수'||r.status==='승인'));
+  const base=new Date(); base.setDate(1); base.setMonth(base.getMonth()+S.cMonth);
+  const y=base.getFullYear(), m=base.getMonth(), first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+  let cells=WD.map((w,i)=>`<span class="wd ${i===0?'sun':''}">${w}</span>`).join('');
+  for(let i=0;i<first;i++) cells+='<span></span>';
+  for(let d=1;d<=days;d++){
+    const k=`${y}-${pad(m+1)}-${pad(d)}`, sl=slots[k];
+    let cls='closed',lab='',dis=true;
+    if(k<=t) cls='past';
+    else if(sl&&sl.remaining>0){cls='open';lab=sl.remaining+'자리';dis=!!mine;}
+    else if(sl){cls='full';lab='마감';}
+    if(S.cDay===k) cls+=' sel';
+    if(mine&&mine.target_date===k) cls+=' mine';
+    cells+=`<button type="button" class="day ${cls}" data-act="c-day" data-k="${k}" ${dis?'disabled':''} aria-label="${kdate(k)} ${lab||'신청 불가'}">${d}${lab?`<small>${lab}</small>`:''}</button>`;
+  }
+  const sel=S.cDay&&slots[S.cDay];
+  return `<div class="appbar"><button type="button" class="icon-btn" data-act="go" data-v="home" aria-label="뒤로">${ic('back')}</button><h1 class="h" style="flex:1;font-size:19px">실내세차 신청</h1></div>
+  <div class="card" style="background:var(--ink);color:#fff;border-color:var(--ink)"><div class="row"><span class="bubble" style="background:rgba(226,199,127,.15);border-color:transparent;color:var(--gold-2)">${ic('home')}</span><div class="grow"><b>${esc(p.complex||'우리 단지')}</b><p class="sub" style="color:#C4CBD7">직원이 열어둔 날짜만 신청할 수 있어요 · 건당 결제</p></div></div></div>
+  ${mine?(mine.status==='승인'?`<p class="state ok">${ic('check')}<span>${kdate(mine.target_date)} 실내세차가 확정되었어요</span></p>`:`<p class="state">${ic('clock')}<span>${kdate(mine.target_date)} 실내세차 신청됨 · 담당 매니저가 확인하고 있어요</span></p>`):''}
+  <div class="card">
+    <div class="cal-head"><button type="button" class="icon-btn" data-act="c-month" data-d="-1" ${S.cMonth<=0?'disabled':''} aria-label="이전 달">${ic('back',16)}</button><h2 class="h">${y}년 ${m+1}월</h2><button type="button" class="icon-btn" data-act="c-month" data-d="1" ${S.cMonth>=2?'disabled':''} aria-label="다음 달">${ic('arrow',16)}</button></div>
+    <div class="cal">${cells}</div>
+    <div class="legend"><span><i class="lg open"></i>신청 가능</span><span><i class="lg full"></i>마감</span><span><i class="lg"></i>신청 안 받음</span></div>
+  </div>
+  ${!mine?(sel?`<div class="card"><div class="row"><span class="bubble">${ic('sparkle')}</span><div class="grow"><h2 class="h">${kdate(S.cDay)}</h2><p class="sub">남은 자리 ${sel.remaining}대 · ${esc(p.car_number||'')}</p></div></div>
+      <button type="button" class="btn full" data-act="int-apply">이 날짜로 신청하기<span class="arr">${ic('arrow')}</span></button></div>`
+    :`<p class="note" style="text-align:center">${S.slots.length?'금색 날짜를 눌러 원하는 날을 골라 주세요.':'아직 열린 날짜가 없어요. 직원이 날짜를 열면 여기에 표시돼요.'}</p>`):''}`;
+}
+
+/* ---------- 화면: 알림 / 내 정보 ---------- */
+function alertsView(){
+  return `<div class="appbar"><h1 class="h">알림</h1></div>
+  ${S.notes.length?`<ul class="alerts">${S.notes.map(n=>`<li class="${n.is_read?'':'new'}"><span class="bubble">${ic(n.kind==='done'?'check':n.kind==='notice'?'bell':n.kind==='request'?'cal':'info')}</span><div class="grow"><time>${when(n.created_at)}</time><b>${esc(n.title)}</b><p>${esc(n.body)}</p></div></li>`).join('')}</ul>`
+  :`<div class="empty">${ic('bell',28)}<p>아직 받은 알림이 없어요.<br>세차가 끝나면 여기에서 알려드려요.</p></div>`}`;
+}
+function meView(){
+  const p=S.profile;
+  return `<div class="appbar"><h1 class="h">내 정보</h1></div>
+  <div class="card"><div class="row"><span class="bubble">${ic('user')}</span><div class="grow"><h2 class="h">${esc(p.name||p.account_name)}</h2><p class="sub">아이디 ${esc(p.login_id)} · ${esc(maskPhone(p.phone))}</p></div></div>
+    <dl class="kv"><dt>차량</dt><dd>${esc(p.car_number||'')}${p.car_model?' ('+esc(p.car_model)+')':''}</dd><dt>아파트</dt><dd>${esc([p.complex,p.unit].filter(Boolean).join(' '))}</dd><dt>이용권</dt><dd>${esc(planName())}</dd>${p.wash_weekday!=null?`<dt>지정 요일</dt><dd>${cycleText()} ${WDF[p.wash_weekday]}</dd>`:''}</dl></div>
+  <div class="card"><div class="row"><span class="bubble">${ic('bell')}</span><div class="grow"><h2 class="h">휴대폰 알림</h2><p class="sub">세차 완료 알림을 휴대폰으로 받는 기능은 곧 열려요. 지금은 앱 알림함에서 확인하실 수 있어요.</p></div></div></div>
+  <button type="button" class="btn2" data-act="logout">${ic('logout')}로그아웃</button>
+  <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지</a> · <button type="button" class="link" data-act="policy">개인정보처리방침</button></p>`;
+}
+
+/* ---------- 그리기 ---------- */
+function render(){
+  const scr=$('#screen'), nav=$('#nav'), shell=$('#shell');
+  if(!db){ scr.innerHTML=`<div class="loading"><p>인터넷 연결을 확인한 뒤 새로고침해 주세요.</p></div>`; return; }
+  if(!S.ready){ return; }
+  const focusId=document.activeElement&&document.activeElement.id;
+  let html='', showNav=false;
+  if(!S.session){ html=authView(); }
+  else if(!S.profile){ html=`<div class="loading"><div class="spin"></div>불러오는 중...</div>`; }
+  else if(!S.profile.linked){ html=pendingView(); }
+  else {
+    showNav=true;
+    html= S.view==='alerts'?alertsView(): S.view==='me'?meView(): S.view==='interior'?interiorView(): homeView();
+  }
+  scr.innerHTML=html;
+  nav.hidden=!showNav; shell.classList.toggle('with-nav',showNav);
+  if(showNav){
+    nav.innerHTML=[['home','홈','home'],['alerts','알림','bell'],['me','내 정보','user']].map(([k,l,i])=>`<button type="button" data-act="go" data-v="${k}" ${S.view===k||(k==='home'&&S.view==='interior')?'aria-current="page"':''}><span class="ni">${ic(i)}</span>${l}${k==='alerts'&&unread()?'<span class="dot"></span>':''}</button>`).join('');
+  }
+  if(focusId){ const el=document.getElementById(focusId); if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA')) el.focus({preventScroll:true}); }
+  renderLayer();
+}
+function renderLayer(){
+  const L=$('#layer'), d=S.dialog;
+  if(!d){ L.innerHTML=''; return; }
+  if(d.type==='policy'){
+    L.innerHTML=`<div class="scrim" data-act="close"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dg-h" data-stop><h2 class="h" id="dg-h">개인정보처리방침</h2><pre>개인정보처리방침 (초안)
+
+오토핸즈(이하 "회사")은 「개인정보 보호법」 등 관련 법령을 준수하며, 이용자의 개인정보를 안전하게 처리하기 위해 다음과 같이 개인정보처리방침을 수립·공개합니다.
+
+1. 수집하는 개인정보 항목
+- 영업사원(직원) 가입 시: 이름, 휴대폰번호, 생년월일, 은행명, 계좌번호, 주소, 이메일, 아이디/비밀번호
+- 고객(신청서) 작성 시: 이름, 연락처, 계약자명, 차량번호, 주소, 상세주소, 입금자명, 입차·출차시간
+
+2. 개인정보의 수집 및 이용 목적
+- 직원: 계정 생성 및 승인, 인센티브 지급, 담당 고객 배정 및 업무 관리
+- 고객: 세차 정기권 상담·계약 체결 및 이행, 계약금 확인(입금자명), 서비스 제공(주차 시간 확인), 고객관리
+- 마케팅 수신에 별도 동의한 경우에 한해 이벤트·할인 등 마케팅 정보 안내
+
+3. 개인정보의 보유 및 이용 기간
+- 원칙적으로 수집 및 이용 목적이 달성되면 지체 없이 파기합니다.
+- 다만 계약 또는 청약철회 등에 관한 기록은 관련 법령(전자상거래 등에서의 소비자보호에 관한 법률 등)에 따라 일정 기간 보관할 수 있습니다.
+- 직원이 탈퇴 처리된 경우, 법령상 보관 의무가 없는 정보(연락처, 계좌번호, 주소, 생년월일 등)는 탈퇴 처리 즉시 시스템에 의해 자동으로 파기됩니다.
+
+4. 개인정보의 제3자 제공
+- 회사는 이용자의 동의 없이 개인정보를 제3자에게 제공하지 않습니다. 다만 법령에 특별한 규정이 있는 경우는 예외로 합니다.
+
+5. 개인정보 처리 위탁
+- 회사는 원활한 서비스 제공을 위해 데이터베이스 호스팅 업무를 외부 업체(Supabase Inc.)에 위탁하고 있으며, 위탁받는 자와 위탁업무 내용은 다음과 같습니다.
+  - 수탁자: Supabase Inc. / 위탁업무: 데이터베이스 저장 및 관리
+
+6. 마케팅 정보 수신 동의
+- 고객은 신청서 작성 시 마케팅 정보(이벤트, 할인, 무료 서비스 안내 등) 수신 여부를 선택할 수 있으며, 동의하지 않아도 서비스 이용에 제한이 없습니다.
+- 동의한 고객에 한해 문자(SMS) 등으로 마케팅 정보를 발송하며, 언제든지 수신 거부를 요청할 수 있습니다.
+
+7. 정보주체의 권리와 행사 방법
+- 정보주체는 언제든지 자신의 개인정보 열람, 정정, 삭제, 처리정지를 요구할 수 있습니다.
+
+8. 개인정보의 안전성 확보 조치
+- 접근 권한 관리(담당자만 열람·수정 가능), 화면상 개인정보 마스킹 처리 등 기술적·관리적 조치를 시행하고 있습니다.
+
+9. 개인정보 보호책임자
+- 성명: 정연중 / 연락처: 010-7476-6323
+
+10. 부칙
+- 본 방침은 2026-09-14부터 적용됩니다.
+
+※ 본 문서는 초안입니다. 보관기간, 위탁 범위 등 세부 사항은 사업 운영 방식에 맞춰 개인정보보호 전문가의 법적 검토를 받으시길 권장합니다.</pre><div class="acts"><button type="button" class="btn plain" data-act="close">닫기</button></div></div></div>`;
+  } else {
+    L.innerHTML=`<div class="scrim" data-act="close"><div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="dg-h" data-stop>
+      <span class="bubble">${ic(d.icon||'info')}</span><h2 class="h" id="dg-h">${esc(d.title)}</h2>
+      ${d.big?`<p class="date-big">${esc(d.big)}</p>`:''}<p class="sub">${esc(d.body||'')}</p>
+      <div class="acts"><button type="button" class="btn2" data-act="close">취소</button><button type="button" class="btn plain" id="dg-ok" data-act="confirm" ${S.busy?'disabled':''}>${S.busy?'보내는 중...':'확인'}</button></div></div></div>`;
+  }
+  setTimeout(()=>{ const b=$('#dg-ok')||L.querySelector('[data-act="close"].btn'); b&&b.focus(); },30);
+}
+let toastTimer;
+function toast(msg,err){
+  let t=$('#toast'); if(!t){ t=document.createElement('div'); t.id='toast'; t.setAttribute('role','status'); document.body.appendChild(t); }
+  t.className='toast'+(err?' err':''); t.innerHTML=`${ic(err?'info':'check')}<span>${esc(msg)}</span>`; t.hidden=false;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.hidden=true;},3200);
+}
+
+/* ---------- 동작 ---------- */
+async function doRequest(fn,okMsg){
+  S.busy=true; renderLayer();
+  try{ await fn(); S.dialog=null; S.busy=false; toast(okMsg); await loadAll(true); }
+  catch(e){ S.busy=false; S.dialog=null; render(); toast(friendly(e),true); }
+}
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-act]'); if(!t) return;
+  if(t.classList.contains('scrim') && e.target.closest('[data-stop]')) return;
+  const a=t.dataset.act;
+  switch(a){
+    case 'auth-tab': S.authTab=t.dataset.t; S.authErr=''; render(); break;
+    case 'policy': S.dialog={type:'policy'}; renderLayer(); break;
+    case 'close': if(!S.busy){ S.dialog=null; renderLayer(); } break;
+    case 'logout': await db.auth.signOut(); break;
+    case 'reload': await loadAll(); toast('최신 정보로 바꿨어요.'); break;
+    case 'go':
+      S.view=t.dataset.v; S.dayEdit=false; S.daySel=null; window.scrollTo(0,0);
+      if(S.view==='interior'){ S.cDay=null; S.cMonth=0; render(); loadSlots(); }
+      else if(S.view==='alerts'){ render(); if(unread()){ try{ await rpc('mark_my_notifications_read'); setTimeout(()=>{ S.notes.forEach(n=>n.is_read=true); render(); },1500);}catch(_){}} }
+      else render();
+      break;
+    case 'send-msg': {
+      const v=S.msgDraft.trim(); if(!v) break;
+      S.busy=true; render();
+      try{ await rpc('submit_customer_request',{p_type:'msg',p_message:v}); S.msgDraft=''; S.busy=false; toast('담당 매니저에게 보냈어요.'); await loadAll(true); }
+      catch(err){ S.busy=false; render(); toast(friendly(err),true); }
+      break;
+    }
+    case 'day-edit': S.dayEdit=true; S.daySel=null; render(); break;
+    case 'day-cancel': S.dayEdit=false; S.daySel=null; render(); break;
+    case 'day-sel': S.daySel=t.dataset.k; render(); break;
+    case 'day-apply': {
+      const base=nextFutureJob(); if(!base||!S.daySel) break;
+      S.dialog={icon:'cal',title:'일정 변경을 요청할까요?',big:`${kdate(base.wash_date)} → ${kdate(S.daySel)}`,
+        body:'이 주만 바뀌고, 다음 회차부터는 다시 원래 요일로 진행돼요. 확인을 누르면 담당 매니저에게 알림이 가요.',
+        run:()=>rpc('submit_customer_request',{p_type:'schedule',p_target_date:S.daySel,p_base_date:base.wash_date}).then(()=>{S.dayEdit=false;S.daySel=null;}),
+        ok:'일정 변경을 요청했어요.'};
+      renderLayer(); break;
+    }
+    case 'c-month': S.cMonth=Math.min(2,Math.max(0,S.cMonth+Number(t.dataset.d))); S.cDay=null; render(); break;
+    case 'c-day': S.cDay=t.dataset.k; render(); break;
+    case 'int-apply': {
+      if(!S.cDay) break; const k=S.cDay;
+      S.dialog={icon:'sparkle',title:'실내세차 신청하시겠습니까?',big:kdate(k),body:'확인을 누르면 담당 매니저에게 알림이 가요.',
+        run:()=>rpc('submit_customer_request',{p_type:'interior',p_target_date:k}).then(()=>{S.cDay=null;return loadSlots();}),
+        ok:'실내세차를 신청했어요.'};
+      renderLayer(); break;
+    }
+    case 'confirm': if(S.dialog&&S.dialog.run&&!S.busy){ const d=S.dialog; doRequest(d.run,d.ok); } break;
+  }
+});
+document.addEventListener('input',e=>{
+  const id=e.target.id;
+  if(id==='msg'){ S.msgDraft=e.target.value; const b=$('#msg-send'); if(b) b.disabled=!S.msgDraft.trim()||S.busy; }
+  if(id==='su-phone'||id==='rl-phone'){ e.target.value=fmtPhone(e.target.value); }
+  if(id==='su-id'){ e.target.value=e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,''); }
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&S.dialog&&!S.busy){ S.dialog=null; renderLayer(); } });
+document.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const v=id=>(document.getElementById(id)||{}).value?.trim()||'';
+  if(e.target.id==='auth-form'){
+    S.authErr='';
+    if(S.authTab==='login'){
+      if(!v('li-id')||!v('li-pw')){ S.authErr='아이디와 비밀번호를 입력해 주세요.'; render(); return; }
+      S.busy=true; render();
+      const {error}=await db.auth.signInWithPassword({email:toEmail(v('li-id')),password:document.getElementById('li-pw').value});
+      S.busy=false; if(error){ S.authErr=friendly(error); render(); }
+      return;
+    }
+    const name=v('su-name'), phone=v('su-phone'), car=v('su-car'), id=v('su-id'), pw=document.getElementById('su-pw').value, pw2=document.getElementById('su-pw2').value;
+    if(!name||!phone||!car||!id||!pw){ S.authErr='모든 칸을 입력해 주세요.'; }
+    else if(!/^01\d-\d{3,4}-\d{4}$/.test(phone)){ S.authErr='휴대폰 번호를 010-0000-0000 형식으로 입력해 주세요.'; }
+    else if(!/^[a-z0-9_]{4,20}$/.test(id)){ S.authErr='아이디는 영문 소문자·숫자 4~20자로 정해 주세요.'; }
+    else if(pw.length<8){ S.authErr='비밀번호는 8자 이상으로 정해 주세요.'; }
+    else if(pw!==pw2){ S.authErr='비밀번호 확인이 맞지 않아요.'; }
+    else if(!document.getElementById('su-agree').checked){ S.authErr='개인정보 수집·이용에 동의해 주세요.'; }
+    if(S.authErr){ const keep={name,phone,car,id}; render(); refill(keep); return; }
+    S.busy=true; render(); refill({name,phone,car,id});
+    const {data,error}=await db.auth.signUp({email:toEmail(id),password:pw,options:{data:{account_type:'customer',login_id:id,name,phone,car_number:car}}});
+    S.busy=false;
+    if(error){ S.authErr=friendly(error); render(); refill({name,phone,car,id}); return; }
+    if(!data.session){ S.authErr='가입은 되었지만 바로 로그인되지 않았어요. 잠시 후 로그인해 보시고, 안 되면 담당 매니저에게 문의해 주세요.'; S.authTab='login'; render(); return; }
+    toast('가입이 완료되었어요.');
+    return;
+  }
+  if(e.target.id==='relink-form'){
+    const phone=v('rl-phone'), car=v('rl-car');
+    if(!/^01\d-\d{3,4}-\d{4}$/.test(phone)||!car){ toast('휴대폰 번호와 차량번호를 확인해 주세요.',true); return; }
+    try{ const found=await rpc('link_my_account',{p_phone:phone,p_car_number:car}); toast(found?'계약 정보를 찾았어요. 매니저 확인 후 이용하실 수 있어요.':'아직 계약 정보를 찾지 못했어요. 담당 매니저에게 문의해 주세요.',!found); await loadAll(true); }
+    catch(err){ toast(friendly(err),true); }
+  }
+});
+function refill(o){ const m={name:'su-name',phone:'su-phone',car:'su-car',id:'su-id'}; for(const k in o){ const el=document.getElementById(m[k]); if(el) el.value=o[k]; } }
+
+/* ---------- 시작 ---------- */
+let poll;
+async function boot(){
+  if(!db){ S.ready=true; render(); return; }
+  const {data}=await db.auth.getSession();
+  S.session=data.session; S.ready=true;
+  if(S.session) await loadAll(true); else render();
+  db.auth.onAuthStateChange(async (ev,session)=>{
+    const was=!!S.session; S.session=session;
+    if(!session){ S.profile=null; S.jobs=[]; S.notes=[]; S.reqs=[]; S.view='home'; render(); return; }
+    if(!was||ev==='SIGNED_IN'){ S.profile=null; render(); await loadAll(true); }
+  });
+  poll=setInterval(()=>{ const ae=document.activeElement; const typing=ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'); if(document.visibilityState==='visible'&&S.session&&!S.dialog&&!S.dayEdit&&!typing) loadAll(true); },30000);
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&S.session) loadAll(true); });
+}
+boot();
+</script>
+</body>
+</html>
