@@ -257,6 +257,44 @@ async function rpc(name,args){
   if(error) throw error;
   return data;
 }
+/* ---------- 휴대폰 알림 ---------- */
+const VAPID_PUBLIC_KEY='BK2UTh2PXr0eHlrzE6aF_yQz6oePPhcAc2brXaYMI19efZnUKa8oI8OR8BLG-QsJayVjcRNA7Zyu0xX3icYEE7A';
+let pushState='checking';
+function kickPush(){ try{ if(db&&S.session) db.functions.invoke('hyper-endpoint',{body:{}}).catch(()=>{}); }catch(_){} }
+function b64ToU8(b){const pad='='.repeat((4-b.length%4)%4);const raw=atob((b+pad).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
+async function checkPush(){
+  try{
+    if(isIOS()&&!isStandalone()) pushState='ios';
+    else if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)) pushState='unsupported';
+    else if(Notification.permission==='denied') pushState='denied';
+    else { const reg=await navigator.serviceWorker.getRegistration(); const sub=reg?await reg.pushManager.getSubscription():null; pushState=(sub&&Notification.permission==='granted')?'on':'off'; }
+  }catch(_){ pushState='off'; }
+}
+async function enablePush(){
+  await checkPush();
+  if(pushState==='ios'){ toast('아이폰은 홈 화면에 추가한 앱으로 열어야 알림을 받을 수 있어요.',true); render(); return; }
+  if(pushState==='unsupported'){ toast('이 브라우저는 알림을 지원하지 않아요. 크롬에서 열어 주세요.',true); render(); return; }
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){ pushState=perm==='denied'?'denied':'off'; render(); toast('알림이 허용되지 않았어요.',true); return; }
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUBLIC_KEY)});
+    const j=sub.toJSON();
+    await rpc('save_customer_push',{p_endpoint:j.endpoint,p_p256dh:j.keys.p256dh,p_auth:j.keys.auth});
+    pushState='on'; render(); toast('휴대폰 알림을 켰어요. 세차가 끝나면 바로 알려드릴게요.');
+  }catch(e){ await checkPush(); render(); toast(friendly(e),true); }
+}
+function pushCard(compact){
+  if(pushState==='on') return compact?'':`<div class="card"><div class="row"><span class="bubble">${ic('bell')}</span><div class="grow"><h2 class="h">휴대폰 알림 켜짐</h2><p class="sub">세차 완료·매니저 공지·요청 처리 소식을 휴대폰 알림으로 받아요.</p></div></div></div>`;
+  if(pushState==='checking'||(compact&&pushState!=='off')) return '';
+  const msg= pushState==='ios'?'아이폰은 Safari 공유 버튼(□↑) → "홈 화면에 추가"로 설치한 뒤, 홈 화면의 오토핸즈 아이콘으로 열어서 켜 주세요.'
+    : pushState==='denied'?'알림이 차단되어 있어요. 휴대폰 설정 → 애플리케이션 → 오토핸즈(또는 Chrome) → 알림을 허용한 뒤 다시 눌러 주세요.'
+    : pushState==='unsupported'?'이 브라우저는 알림을 지원하지 않아요. 안드로이드는 크롬, 아이폰은 홈 화면에 추가한 앱에서 켜 주세요.'
+    : '세차가 끝나면 앱을 열지 않아도 휴대폰으로 바로 알려드려요.';
+  return `<div class="card"><div class="row"><span class="bubble">${ic('bell')}</span><div class="grow"><h2 class="h">휴대폰 알림 켜기</h2><p class="sub">${msg}</p></div></div>
+    ${pushState==='off'||pushState==='denied'?`<button type="button" class="btn full" data-act="push-on">알림 켜기<span class="arr">${ic('arrow')}</span></button>`:''}</div>`;
+}
 async function loadAll(silent){
   if(!S.session) return;
   try{
@@ -381,6 +419,7 @@ function homeView(){
   return `<div class="appbar">${logo()}<button type="button" class="icon-btn" data-act="go" data-v="alerts" aria-label="알림 ${unread()}개">${ic('bell')}${unread()?`<span class="badge">${unread()}</span>`:''}</button></div>
   <div><p class="sub">${kdate(todayKey())}</p><h1 class="h">${esc(p.name||p.account_name)} 님, 내 차 세차 현황이에요</h1></div>
   ${S.loadErr?`<p class="state warn">${ic('info')}<span>${esc(S.loadErr)}</span></p>`:''}
+  ${pushCard(true)}
   ${heroCard()}
   <section class="card" aria-label="내 차량">
     <div class="row"><span class="bubble">${ic('car')}</span><div class="grow"><h2 class="h">${esc(p.car_number||'')}</h2><p class="sub">${esc([p.car_model,p.car_color].filter(Boolean).join(' · '))}${p.car_model||p.car_color?' · ':''}${esc([p.complex,p.unit].filter(Boolean).join(' '))}</p></div></div>
@@ -479,7 +518,7 @@ function meView(){
   return `<div class="appbar"><h1 class="h">내 정보</h1></div>
   <div class="card"><div class="row"><span class="bubble">${ic('user')}</span><div class="grow"><h2 class="h">${esc(p.name||p.account_name)}</h2><p class="sub">아이디 ${esc(p.login_id)} · ${esc(maskPhone(p.phone))}</p></div></div>
     <dl class="kv"><dt>차량</dt><dd>${esc(p.car_number||'')}${p.car_model?' ('+esc(p.car_model)+')':''}</dd><dt>아파트</dt><dd>${esc([p.complex,p.unit].filter(Boolean).join(' '))}</dd><dt>이용권</dt><dd>${esc(planName())}</dd>${p.wash_weekday!=null?`<dt>지정 요일</dt><dd>${cycleText()} ${WDF[p.wash_weekday]}</dd>`:''}</dl></div>
-  <div class="card"><div class="row"><span class="bubble">${ic('bell')}</span><div class="grow"><h2 class="h">휴대폰 알림</h2><p class="sub">세차 완료 알림을 휴대폰으로 받는 기능은 곧 열려요. 지금은 앱 알림함에서 확인하실 수 있어요.</p></div></div></div>
+  ${pushCard(false)}
   ${installCard()}
   <button type="button" class="btn2" data-act="logout">${ic('logout')}로그아웃</button>
   <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지</a> · <button type="button" class="link" data-act="policy">개인정보처리방침</button></p>`;
@@ -571,7 +610,7 @@ function toast(msg,err){
 /* ---------- 동작 ---------- */
 async function doRequest(fn,okMsg){
   S.busy=true; renderLayer();
-  try{ await fn(); S.dialog=null; S.busy=false; toast(okMsg); await loadAll(true); }
+  try{ await fn(); kickPush(); S.dialog=null; S.busy=false; toast(okMsg); await loadAll(true); }
   catch(e){ S.busy=false; S.dialog=null; render(); toast(friendly(e),true); }
 }
 document.addEventListener('click',async e=>{
@@ -593,7 +632,7 @@ document.addEventListener('click',async e=>{
     case 'send-msg': {
       const v=S.msgDraft.trim(); if(!v) break;
       S.busy=true; render();
-      try{ await rpc('submit_customer_request',{p_type:'msg',p_message:v}); S.msgDraft=''; S.busy=false; toast('담당 매니저에게 보냈어요.'); await loadAll(true); }
+      try{ await rpc('submit_customer_request',{p_type:'msg',p_message:v}); kickPush(); S.msgDraft=''; S.busy=false; toast('담당 매니저에게 보냈어요.'); await loadAll(true); }
       catch(err){ S.busy=false; render(); toast(friendly(err),true); }
       break;
     }
@@ -617,6 +656,7 @@ document.addEventListener('click',async e=>{
         ok:'실내세차를 신청했어요.'};
       renderLayer(); break;
     }
+    case 'push-on': if(!S.busy){ await enablePush(); } break;
     case 'install': if(deferredInstall){ deferredInstall.prompt(); await deferredInstall.userChoice; deferredInstall=null; render(); } break;
     case 'confirm': if(S.dialog&&S.dialog.run&&!S.busy){ const d=S.dialog; doRequest(d.run,d.ok); } break;
   }
@@ -653,7 +693,7 @@ document.addEventListener('submit',async e=>{
     S.busy=false;
     if(error){ S.authErr=friendly(error); render(); refill({name,phone,car,id}); return; }
     if(!data.session){ S.authErr='가입은 되었지만 바로 로그인되지 않았어요. 잠시 후 로그인해 보시고, 안 되면 담당 매니저에게 문의해 주세요.'; S.authTab='login'; render(); return; }
-    toast('가입이 완료되었어요.');
+    toast('가입이 완료되었어요.'); setTimeout(kickPush,1500);
     return;
   }
   if(e.target.id==='relink-form'){
@@ -671,13 +711,14 @@ async function boot(){
   if(!db){ S.ready=true; render(); return; }
   const {data}=await db.auth.getSession();
   S.session=data.session; S.ready=true;
+  checkPush().then(()=>{ if(S.session) render(); });
   if(S.session) await loadAll(true); else render();
   db.auth.onAuthStateChange(async (ev,session)=>{
     const was=!!S.session; S.session=session;
     if(!session){ S.profile=null; S.jobs=[]; S.notes=[]; S.reqs=[]; S.view='home'; render(); return; }
     if(!was||ev==='SIGNED_IN'){ S.profile=null; render(); await loadAll(true); }
   });
-  poll=setInterval(()=>{ const ae=document.activeElement; const typing=ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'); if(document.visibilityState==='visible'&&S.session&&!S.dialog&&!S.dayEdit&&!typing) loadAll(true); },30000);
+  poll=setInterval(()=>{ if(document.visibilityState==='visible'&&S.session&&!S.dialog&&!S.dayEdit) loadAll(true); },30000);
   document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&S.session) loadAll(true); });
 }
 boot();
