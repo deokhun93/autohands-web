@@ -275,7 +275,7 @@ const toEmail=id=>`${id.trim().toLowerCase()}@${EMAIL_DOMAIN}`;
 const S={
   ready:false, session:null, profile:null, jobs:[], notes:[], reqs:[], slots:[],
   view:'home', authTab:'login', dayEdit:false, daySel:null, cMonth:0, cDay:null,
-  msgDraft:'', busy:false, dialog:null, authErr:'', loadErr:'',
+  msgDraft:'', busy:false, slotsLoaded:false, dialog:null, authErr:'', loadErr:'',
   staffCid:null, staffList:null, staffQ:'', staffErr:'', staffExpired:false
 };
 
@@ -355,13 +355,15 @@ async function loadAll(silent){
         rpc('get_my_requests')
       ]);
       S.jobs=jobs||[]; S.notes=notes||[]; S.reqs=reqs||[];
+      // 실내세차 열린 날짜 · 남은 자리 (홈 버튼에서 '마감' 여부를 보여줘요)
+      try{ S.slots=await rpc('list_my_interior_slots',{p_from:addDays(todayKey(),1),p_to:addDays(todayKey(),92)})||[]; S.slotsLoaded=true; }catch(_){}
     }
     S.loadErr='';
   }catch(e){ S.loadErr=friendly(e); if(!silent) toast(S.loadErr,true); }
   render();
 }
 async function loadSlots(){
-  try{ S.slots=await rpc('list_my_interior_slots',{p_from:addDays(todayKey(),1),p_to:addDays(todayKey(),92)})||[]; }
+  try{ S.slots=await rpc('list_my_interior_slots',{p_from:addDays(todayKey(),1),p_to:addDays(todayKey(),92)})||[]; S.slotsLoaded=true; }
   catch(e){ toast(friendly(e),true); S.slots=[]; }
   render();
 }
@@ -460,6 +462,14 @@ function interiorState(){
     ? `<p class="state ok">${ic('check')}<span>${kdate(r.target_date)} 실내세차가 확정되었어요</span></p>`
     : `<p class="state">${ic('clock')}<span>${kdate(r.target_date)} 실내세차 신청됨 · 담당 매니저가 확인하고 있어요</span></p>`;
 }
+function interiorButton(){
+  const open=S.slots.filter(x=>x.remaining>0);
+  if(S.slotsLoaded&&!open.length){
+    return `<button type="button" class="btn2" disabled aria-disabled="true">${ic('sparkle')}실내세차 신청 마감</button>
+      <p class="note" style="margin:-4px 0 0;text-align:center">${S.slots.length?'열린 날짜가 모두 찼어요. 새 날짜가 열리면 다시 신청할 수 있어요.':'아직 신청을 받는 날짜가 없어요. 날짜가 열리면 신청할 수 있어요.'}</p>`;
+  }
+  return `<button type="button" class="btn2 gold" data-act="go" data-v="interior">${ic('sparkle')}실내세차 신청${open.length?` <small style="font-weight:600;opacity:.8">· ${open.length}일 가능</small>`:''}</button>`;
+}
 function homeView(){
   const p=S.profile, j=currentJob();
   const msgs=S.reqs.filter(r=>r.req_type==='msg').slice(0,2);
@@ -472,7 +482,7 @@ function homeView(){
   <section class="card" aria-label="내 차량">
     <div class="row"><span class="bubble">${ic('car')}</span><div class="grow"><h2 class="h">${esc(p.car_number||'')}</h2><p class="sub">${esc([p.car_model,p.car_color].filter(Boolean).join(' · '))}${p.car_model||p.car_color?' · ':''}${esc([p.complex,p.unit].filter(Boolean).join(' '))}</p></div></div>
     <dl class="kv"><dt>세차 종류</dt><dd>${j&&j.interior?'외부 + 실내세차':'외부 세차'}</dd></dl>
-    ${ist||`<button type="button" class="btn2 gold" data-act="go" data-v="interior">${ic('sparkle')}실내세차 신청</button>`}
+    ${ist||interiorButton()}
   </section>
   <section class="card" aria-labelledby="mgr-h">
     <div class="row"><span class="bubble">${ic('msg')}</span><div class="grow"><h2 class="h" id="mgr-h">담당 매니저에게 메시지</h2><p class="sub">요청사항을 앱 알림으로 전달해요</p></div></div>
@@ -725,7 +735,7 @@ document.addEventListener('click',async e=>{
     case 'int-apply': {
       if(!S.cDay) break; const k=S.cDay;
       S.dialog={icon:'sparkle',title:'실내세차 신청하시겠습니까?',big:kdate(k),body:'확인을 누르면 담당 매니저에게 알림이 가요.',
-        run:()=>rpc('submit_customer_request',{p_type:'interior',p_target_date:k}).then(()=>{S.cDay=null;return loadSlots();}),
+        run:()=>rpc('submit_customer_request',{p_type:'interior',p_target_date:k}).then(()=>{S.cDay=null;return loadSlots();},e=>{S.cDay=null;loadSlots();throw e;}),
         ok:'실내세차를 신청했어요.'};
       renderLayer(); break;
     }
