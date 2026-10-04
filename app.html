@@ -189,6 +189,13 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 90px);width:calc(100% - 36px);max-width:444px;background:var(--ink);color:#fff;border-radius:14px;padding:12px 14px;font-size:13.5px;z-index:60;display:flex;gap:10px;align-items:center;box-shadow:0 10px 30px rgba(12,20,34,.3)}
 .toast.err{background:#7A2E1C}
 .loading{display:grid;place-items:center;min-height:60vh;color:var(--sub);gap:12px}
+.staff-bar{display:flex;align-items:center;gap:8px;background:#7A2323;color:#fff;border-radius:12px;padding:9px 10px 9px 14px;font-size:13px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 6px);z-index:30;box-shadow:0 6px 16px rgba(122,35,35,.25)}
+.staff-bar .grow{display:flex;flex-direction:column;min-width:0;flex:1}.staff-bar b{font-size:12px;letter-spacing:.02em;color:#FFD9D0}.staff-bar span{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.staff-bar button{border:1px solid rgba(255,255,255,.45);background:rgba(255,255,255,.12);color:#fff;border-radius:9px;padding:6px 10px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.staff-search{display:flex;gap:8px;align-items:center}.staff-search .grow{flex:1}.staff-search .btn2{min-height:46px}
+.staff-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:60vh;overflow:auto}
+.staff-list button{width:100%;text-align:left;display:flex;flex-direction:column;gap:1px;border:1px solid var(--line);background:var(--paper);border-radius:12px;padding:10px 12px}
+.staff-list button:hover{border-color:var(--gold);background:var(--gold-soft)}.staff-list b{font-family:var(--f-en);font-size:16px}.staff-list span{font-size:13.5px}.staff-list small{font-size:12px;color:var(--sub)}
 .spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--gold);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -205,7 +212,25 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 const SUPABASE_URL='https://kkmmfbqiddirhbiqtqsu.supabase.co';
 const SUPABASE_KEY='sb_publishable_4UNSE0BXfpI5lp4uc-ulxA_EqldYgh-';
 const EMAIL_DOMAIN='customer.autohands.app';
-const db=window.supabase?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}}):null;
+/* ---------- 관리자 고객화면 보기 (영업CRM·관리자웹에서 [고객웹]을 누르면 열림 · 읽기 전용) ---------- */
+const STAFF_TOKEN_KEY='ah-staff-token', STAFF_VIEW_KEY='ah-staff-view';
+const STAFF=(()=>{
+  try{
+    const h=new URLSearchParams(location.hash.slice(1));
+    const tk=h.get('staff');
+    if(tk){
+      sessionStorage.setItem(STAFF_TOKEN_KEY,tk);
+      if(h.get('cid')) sessionStorage.setItem(STAFF_VIEW_KEY,h.get('cid'));
+      history.replaceState(null,'',location.pathname+location.search);  // 주소창에서 바로 지워요
+    }
+    const t=sessionStorage.getItem(STAFF_TOKEN_KEY); if(!t) return null;
+    const b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'); const pl=JSON.parse(atob(b+'='.repeat((4-b.length%4)%4)).replace(/[^\x20-\x7e]/g,''));
+    return {token:t,exp:(pl.exp||0)*1000};
+  }catch(_){ return null; }
+})();
+const db=!window.supabase?null:STAFF
+  ? window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'ah-staff-view-auth'},global:{headers:{Authorization:'Bearer '+STAFF.token}}})
+  : window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true}});
 
 const I={
   drop:'<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
@@ -250,7 +275,8 @@ const toEmail=id=>`${id.trim().toLowerCase()}@${EMAIL_DOMAIN}`;
 const S={
   ready:false, session:null, profile:null, jobs:[], notes:[], reqs:[], slots:[],
   view:'home', authTab:'login', dayEdit:false, daySel:null, cMonth:0, cDay:null,
-  msgDraft:'', busy:false, dialog:null, authErr:'', loadErr:''
+  msgDraft:'', busy:false, dialog:null, authErr:'', loadErr:'',
+  staffCid:null, staffList:null, staffQ:'', staffErr:'', staffExpired:false
 };
 
 /* ---------- 데이터 ---------- */
@@ -264,15 +290,22 @@ function friendly(err){
   if(/[가-힣]/.test(m)) return m;
   return '문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
 }
+const STAFF_READ={get_my_profile:'staff_view_profile',get_my_jobs:'staff_view_jobs',get_my_notifications:'staff_view_notifications',get_my_requests:'staff_view_requests',list_my_interior_slots:'staff_view_slots'};
 async function rpc(name,args){
+  if(STAFF){
+    if(Date.now()>=STAFF.exp){ S.staffExpired=true; render(); throw new Error('관리자 보기 시간이 끝났어요.'); }
+    if(name.startsWith('staff_')){}
+    else if(STAFF_READ[name]){ name=STAFF_READ[name]; args={...(args||{}),p_customer_id:S.staffCid}; }
+    else throw new Error('관리자 보기 모드(읽기 전용)에서는 고객 대신 보내거나 바꿀 수 없어요.');
+  }
   const {data,error}=await db.rpc(name,args||{});
-  if(error) throw error;
+  if(error){ if(STAFF&&/jwt|JWT/.test(error.message||'')){ S.staffExpired=true; render(); } throw error; }
   return data;
 }
 /* ---------- 휴대폰 알림 ---------- */
 const VAPID_PUBLIC_KEY='BK2UTh2PXr0eHlrzE6aF_yQz6oePPhcAc2brXaYMI19efZnUKa8oI8OR8BLG-QsJayVjcRNA7Zyu0xX3icYEE7A';
 let pushState='checking';
-function kickPush(){ try{ if(db&&S.session) db.functions.invoke('hyper-endpoint',{body:{}}).catch(()=>{}); }catch(_){} }
+function kickPush(){ try{ if(db&&S.session&&!STAFF) db.functions.invoke('hyper-endpoint',{body:{}}).catch(()=>{}); }catch(_){} }
 function b64ToU8(b){const pad='='.repeat((4-b.length%4)%4);const raw=atob((b+pad).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));}
 async function checkPush(){
   try{
@@ -283,6 +316,7 @@ async function checkPush(){
   }catch(_){ pushState='off'; }
 }
 async function enablePush(){
+  if(STAFF){ toast('관리자 보기 모드에서는 고객 휴대폰 알림을 켤 수 없어요.',true); return; }
   await checkPush();
   if(pushState==='ios'){ toast('아이폰은 홈 화면에 추가한 앱으로 열어야 알림을 받을 수 있어요.',true); render(); return; }
   if(pushState==='unsupported'){ toast('이 브라우저는 알림을 지원하지 않아요. 크롬에서 열어 주세요.',true); render(); return; }
@@ -309,6 +343,7 @@ function pushCard(compact){
 }
 async function loadAll(silent){
   if(!S.session) return;
+  if(STAFF&&!S.staffCid){ render(); return; }
   try{
     const prof=await rpc('get_my_profile');
     S.profile=(prof&&prof[0])||null;
@@ -537,6 +572,27 @@ function meView(){
   <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지</a> · <button type="button" class="link" data-act="policy">개인정보처리방침</button></p>`;
 }
 
+/* ---------- 관리자 보기: 고객 고르기 ---------- */
+function staffBar(){
+  const p=S.profile;
+  const who=S.staffCid&&p?`${esc(p.car_number||'')} ${esc(p.name||'')}${p.complex?' · '+esc([p.complex,p.unit].filter(Boolean).join(' ')):''}`:'고객을 골라 주세요';
+  return `<div class="staff-bar" role="status"><div class="grow"><b>관리자 보기 · 읽기 전용</b><span>${who}</span></div>${S.staffCid?'<button type="button" data-act="staff-pick">고객 바꾸기</button>':''}<button type="button" data-act="staff-exit">나가기</button></div>`;
+}
+function staffPickView(){
+  if(S.staffExpired) return `<div class="card"><h2 class="h">관리자 보기 시간이 끝났어요</h2><p class="sub">보안을 위해 관리자 보기는 약 1시간 동안만 열려요. 영업CRM이나 관리자웹에서 [고객웹]을 다시 눌러 주세요.</p><button type="button" class="btn2" data-act="staff-exit">닫기</button></div>`;
+  const L=S.staffList;
+  return `<div class="card"><h2 class="h">어느 고객 화면을 볼까요?</h2><p class="sub">고른 고객이 앱에서 보는 화면(세차 일정·알림·요청)을 그대로 보여드려요. 고객 대신 보내거나 바꾸는 기능은 막혀 있어요.</p>
+    <form id="staff-search" class="staff-search" role="search"><div class="field grow"><input id="staff-q" type="search" value="${esc(S.staffQ)}" placeholder="차량번호 · 이름 · 동호수 · 아파트" aria-label="고객 검색"></div><button class="btn2" type="submit">검색</button></form>
+    ${S.staffErr?`<p class="form-err" role="alert">${esc(S.staffErr)}</p>`:''}
+    ${!L?'<p class="sub">불러오는 중...</p>':L.length?`<ul class="staff-list">${L.map(c=>`<li><button type="button" data-act="staff-view" data-id="${c.id}"><b>${esc(c.car_number||'-')}</b><span>${esc(c.name||'')} · ${esc([c.complex,c.unit].filter(Boolean).join(' ')||'아파트 미입력')}</span><small>${c.has_app?'앱 가입':'앱 미가입'}${c.wash_status&&c.wash_status!=='세차중'?' · '+esc(c.wash_status):''}</small></button></li>`).join('')}</ul>`:'<p class="sub">조건에 맞는 계약 고객이 없어요.</p>'}
+  </div>`;
+}
+async function staffSearch(){
+  S.staffErr=''; S.staffList=null; render();
+  try{ S.staffList=await rpc('staff_find_customers',{p_q:S.staffQ.trim()||null})||[]; }catch(e){ S.staffList=[]; S.staffErr=friendly(e); }
+  render();
+}
+
 /* ---------- 그리기 ---------- */
 function render(){
   const scr=$('#screen'), nav=$('#nav'), shell=$('#shell');
@@ -545,13 +601,14 @@ function render(){
   const focusId=document.activeElement&&document.activeElement.id;
   let html='', showNav=false;
   if(!S.session){ html=authView(); }
+  else if(STAFF&&(!S.staffCid||S.staffExpired)){ html=staffPickView(); }
   else if(!S.profile){ html=`<div class="loading"><div class="spin"></div>불러오는 중...</div>`; }
   else if(!S.profile.linked){ html=pendingView(); }
   else {
     showNav=true;
     html= S.view==='alerts'?alertsView(): S.view==='me'?meView(): S.view==='interior'?interiorView(): homeView();
   }
-  scr.innerHTML=html;
+  scr.innerHTML=(STAFF?staffBar():'')+html;
   nav.hidden=!showNav; shell.classList.toggle('with-nav',showNav);
   if(showNav){
     nav.innerHTML=[['home','홈','home'],['alerts','알림','bell'],['me','내 정보','user']].map(([k,l,i])=>`<button type="button" data-act="go" data-v="${k}" ${S.view===k||(k==='home'&&S.view==='interior')?'aria-current="page"':''}><span class="ni">${ic(i)}</span>${l}${k==='alerts'&&unread()?'<span class="dot"></span>':''}</button>`).join('');
@@ -634,7 +691,10 @@ document.addEventListener('click',async e=>{
     case 'auth-tab': S.authTab=t.dataset.t; S.authErr=''; render(); break;
     case 'policy': S.dialog={type:'policy'}; renderLayer(); break;
     case 'close': if(!S.busy){ S.dialog=null; renderLayer(); } break;
-    case 'logout': await db.auth.signOut(); break;
+    case 'logout': if(STAFF){ staffExit(); break; } await db.auth.signOut(); break;
+    case 'staff-exit': staffExit(); break;
+    case 'staff-pick': S.staffCid=null; S.profile=null; S.jobs=[]; S.notes=[]; S.reqs=[]; S.view='home'; try{sessionStorage.removeItem(STAFF_VIEW_KEY);}catch(_){} render(); if(!S.staffList) staffSearch(); break;
+    case 'staff-view': S.staffCid=Number(t.dataset.id); try{sessionStorage.setItem(STAFF_VIEW_KEY,String(S.staffCid));}catch(_){} S.profile=null; S.view='home'; window.scrollTo(0,0); render(); await loadAll(); break;
     case 'reload': await loadAll(); toast('최신 정보로 바꿨어요.'); break;
     case 'go':
       S.view=t.dataset.v; S.dayEdit=false; S.daySel=null; window.scrollTo(0,0);
@@ -736,8 +796,19 @@ function refill(o){ const m={name:'su-name',phone:'su-phone',car:'su-car',id:'su
 
 /* ---------- 시작 ---------- */
 let poll;
+function staffExit(){ try{ sessionStorage.removeItem(STAFF_TOKEN_KEY); sessionStorage.removeItem(STAFF_VIEW_KEY); }catch(_){} try{ window.close(); }catch(_){} setTimeout(()=>location.replace('/app'),300); }
+async function bootStaff(){
+  S.session={staff:true}; S.ready=true;
+  if(Date.now()>=STAFF.exp) S.staffExpired=true;
+  const cid=Number(sessionStorage.getItem(STAFF_VIEW_KEY)||0);
+  if(cid&&!S.staffExpired){ S.staffCid=cid; render(); await loadAll(); }
+  else { render(); if(!S.staffExpired) staffSearch(); }
+  document.addEventListener('submit',e=>{ if(e.target.id!=='staff-search') return; e.preventDefault(); S.staffQ=(document.getElementById('staff-q')||{}).value||''; staffSearch(); });
+  poll=setInterval(()=>{ if(document.visibilityState==='visible'&&S.staffCid&&!S.staffExpired&&!S.dialog&&!S.dayEdit) loadAll(true); },30000);
+}
 async function boot(){
   if(!db){ S.ready=true; render(); return; }
+  if(STAFF) return bootStaff();
   let {data}=await db.auth.getSession();
   // 자동 로그인을 끈 경우: 앱(브라우저)을 완전히 닫았다 열면 로그아웃
   let alive=false; try{ alive=sessionStorage.getItem(ALIVE_KEY)==='1'; }catch(_){}
