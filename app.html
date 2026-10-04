@@ -199,6 +199,7 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .spin{width:28px;height:28px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--gold);animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.iprice{color:var(--sub);font-size:11.5px;margin:2px 4px 12px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -290,7 +291,7 @@ function friendly(err){
   if(/[가-힣]/.test(m)) return m;
   return '문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
 }
-const STAFF_READ={get_my_profile:'staff_view_profile',get_my_jobs:'staff_view_jobs',get_my_notifications:'staff_view_notifications',get_my_requests:'staff_view_requests',list_my_interior_slots:'staff_view_slots'};
+const STAFF_READ={get_my_profile:'staff_view_profile',get_my_jobs:'staff_view_jobs',get_my_notifications:'staff_view_notifications',get_my_requests:'staff_view_requests',list_my_interior_slots:'staff_view_slots',get_my_interior_price:'staff_view_interior_price'};
 async function rpc(name,args){
   if(STAFF){
     if(Date.now()>=STAFF.exp){ S.staffExpired=true; render(); throw new Error('관리자 보기 시간이 끝났어요.'); }
@@ -357,6 +358,8 @@ async function loadAll(silent){
       S.jobs=jobs||[]; S.notes=notes||[]; S.reqs=reqs||[];
       // 실내세차 열린 날짜 · 남은 자리 (홈 버튼에서 '마감' 여부를 보여줘요)
       try{ S.slots=await rpc('list_my_interior_slots',{p_from:addDays(todayKey(),1),p_to:addDays(todayKey(),92)})||[]; S.slotsLoaded=true; }catch(_){}
+      // 실내세차 금액 (차종으로 자동 구분 · 세단/SUV)
+      try{ const pr=await rpc('get_my_interior_price'); S.iprice=(pr&&pr[0])||null; }catch(_){ S.iprice=null; }
     }
     S.loadErr='';
   }catch(e){ S.loadErr=friendly(e); if(!silent) toast(S.loadErr,true); }
@@ -524,6 +527,12 @@ function planCard(){
 }
 
 /* ---------- 화면: 실내세차 ---------- */
+const wonK=n=>Number(n||0).toLocaleString('ko-KR')+'원';
+function iPriceNote(){
+  const r=S.iprice; if(!r) return '';
+  const mine=r.car_class?` · 내 차${r.car_model?' '+esc(r.car_model):''}(${r.car_class==='SUV'?'SUV':'세단'}) ${wonK(r.price)}`:'';
+  return `<p class="iprice">* 내부세차 비용: 세단 ${wonK(r.sedan_price)} / SUV ${wonK(r.suv_price)}${mine}</p>`;
+}
 function interiorView(){
   const p=S.profile, t=todayKey(), slots=Object.fromEntries(S.slots.map(s=>[s.slot_date,s]));
   const mine=S.reqs.find(r=>r.req_type==='interior'&&r.target_date&&r.target_date>=t&&(r.status==='접수'||r.status==='승인'));
@@ -550,6 +559,7 @@ function interiorView(){
     <div class="cal">${cells}</div>
     <div class="legend"><span><i class="lg open"></i>신청 가능</span><span><i class="lg full"></i>마감</span><span><i class="lg"></i>신청 안 받음</span></div>
   </div>
+  ${iPriceNote()}
   ${!mine?(sel?`<div class="card"><div class="row"><span class="bubble">${ic('sparkle')}</span><div class="grow"><h2 class="h">${kdate(S.cDay)}</h2><p class="sub">남은 자리 ${sel.remaining}대 · ${esc(p.car_number||'')}</p></div></div>
       <button type="button" class="btn full" data-act="int-apply">이 날짜로 신청하기<span class="arr">${ic('arrow')}</span></button></div>`
     :`<p class="note" style="text-align:center">${S.slots.length?'금색 날짜를 눌러 원하는 날을 골라 주세요.':'아직 열린 날짜가 없어요. 직원이 날짜를 열면 여기에 표시돼요.'}</p>`):''}`;
@@ -734,7 +744,7 @@ document.addEventListener('click',async e=>{
     case 'c-day': S.cDay=t.dataset.k; render(); break;
     case 'int-apply': {
       if(!S.cDay) break; const k=S.cDay;
-      S.dialog={icon:'sparkle',title:'실내세차 신청하시겠습니까?',big:kdate(k),body:'확인을 누르면 담당 매니저에게 알림이 가요.',
+      S.dialog={icon:'sparkle',title:'실내세차 신청하시겠습니까?',big:kdate(k),body:'확인을 누르면 담당 매니저에게 알림이 가요.'+(S.iprice&&S.iprice.car_class?` (* 내부세차 비용 ${wonK(S.iprice.price)})`:''),
         run:()=>rpc('submit_customer_request',{p_type:'interior',p_target_date:k}).then(()=>{S.cDay=null;return loadSlots();},e=>{S.cDay=null;loadSlots();throw e;}),
         ok:'실내세차를 신청했어요.'};
       renderLayer(); break;
