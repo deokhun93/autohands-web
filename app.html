@@ -157,6 +157,13 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .day.full{color:var(--sub);border-color:var(--line);background:repeating-linear-gradient(45deg,var(--muted) 0 4px,var(--card) 4px 8px);cursor:default}
 .day.sel{background:var(--ink);color:var(--gold-2);border-color:var(--ink)}
 .day.mine{outline:2px dashed var(--gold);outline-offset:1px}
+.day.wash{background:var(--gold-soft);border-color:var(--gold)}
+.day.wash.base{background:var(--gold);border-color:var(--gold);color:var(--ink)}
+.day.wash.done{background:var(--muted);border-color:var(--line);color:var(--sub)}
+.day.wash.past{background:var(--muted);border-color:var(--line);color:var(--sub)}
+.day.free{border-color:var(--line)}
+.lg.base{background:var(--gold);border-color:var(--gold)}
+.lg.sel{background:var(--ink);border-color:var(--ink)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:11.5px;font-weight:700;color:var(--sub)}
 .legend span{display:inline-flex;align-items:center;gap:5px}
 .lg{width:14px;height:14px;border-radius:4px;border:1px solid var(--line-2);display:inline-block}
@@ -442,7 +449,7 @@ function heroCard(){
       <div class="when">일정을 준비하고 있어요</div>
       <p class="detail">${hasWd()?`지정 요일은 ${wdLine()}이에요. 일정이 잡히면 여기에 보여드릴게요.`:'세차 일정이 잡히면 여기에 보여드릴게요.'}</p></article>`;
   }
-  const moved=j.moved_from?`<span class="pill">${ic('cal',14)}이 주만 변경 · 원래 ${kdate(j.moved_from)}</span>`:'';
+  const moved=j.moved_from?`<span class="pill">${ic('cal',14)}날짜 변경 · 원래 ${kdate(j.moved_from)}</span>`:'';
   const inter=j.interior?`<span class="pill">${ic('sparkle',14)}실내세차 포함</span>`:'';
   if(j.wash_date>t){
     return `<article class="hero"><span class="pill">예약 확정</span>
@@ -466,9 +473,10 @@ function heroCard(){
 }
 function cycleText(){ const p=S.profile; return p.wash_plan===2?'격주':'매주'; }
 /* 정기권별 세차 요일 글 (월 2·3·4·8·12회) */
-function hasWd(){ const p=S.profile||{}; return p.wash_weekday!=null||p.wash_plan===3; }
+function hasWd(){ const p=S.profile||{}; return p.wash_weekday!=null||p.wash_plan===3||p.wash_plan===2; }
 function wdLine(){ const p=S.profile||{};
   if(p.wash_plan===3) return '달마다 정해 드리는 날짜 3일';
+  if(p.wash_plan===2) return '격주 · 달마다 정해 드리는 날짜 2일';
   if((p.wash_plan===8||p.wash_plan===12)&&p.wash_days&&p.wash_days.length>1){ const o=[1,2,3,4,5,6,0]; return '매주 '+[...p.wash_days].sort((a,b)=>o.indexOf(a)-o.indexOf(b)).map(d=>WDF[d].slice(0,1)).join('·')+'요일'; }
   return p.wash_weekday!=null?`${cycleText()} ${WDF[p.wash_weekday]}`:''; }
 function planName(){ const p=S.profile; return p.product || (p.wash_plan?`월 ${p.wash_plan}회 정기권`:'정기권'); }
@@ -527,16 +535,32 @@ function planCard(){
   const appliedJob=S.jobs.find(j=>j.moved_from&&j.wash_date>=t);
   let state='';
   if(pend) state=`<p class="state">${ic('clock')}<span>${kdate(pend.base_date)} → ${kdate(pend.target_date)} 변경 요청됨 · 담당 매니저가 확인하고 있어요</span></p>`;
-  else if(appliedJob) state=`<p class="state ok">${ic('check')}<span>${kdate(appliedJob.wash_date)}로 이 주만 변경되었어요 · 다음 회차부터 다시 ${hasWd()?wdLine():'원래 요일'}</span></p>`;
+  else if(appliedJob) state=`<p class="state ok">${ic('check')}<span>${kdate(appliedJob.wash_date)}로 변경되었어요 · 다른 회차는 그대로예요</span></p>`;
   let picker='';
   if(S.dayEdit&&baseKey){
-    const d=parseKey(baseKey).getDay(), mon=addDays(baseKey,(d===0?-6:1-d));
+    const bk=S.dayBase||baseKey, y=Number(bk.slice(0,4)), m=Number(bk.slice(5,7))-1, first=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+    const jm={}; S.jobs.forEach(j=>{ if(j.wash_date.slice(0,7)===bk.slice(0,7)) jm[j.wash_date]=j; });
+    let cells=WD.map((w,i)=>`<span class="wd ${i===0?'sun':''}">${w}</span>`).join('');
+    for(let i=0;i<first;i++) cells+='<span></span>';
+    for(let d=1;d<=days;d++){
+      const k=`${y}-${pad(m+1)}-${pad(d)}`, j=jm[k], sun=new Date(y,m,d).getDay()===0;
+      let cls='past',lab='',act='',dis=true;
+      if(j&&j.status==='완료'){cls='wash done';lab='완료';}
+      else if(j&&j.status==='대기'&&k>t){cls='wash'+(k===bk?' base':'');lab=k===bk?'옮길 회차':'세차';act='day-base';dis=false;}
+      else if(j){cls='wash past';lab='세차';}
+      else if(k<=t){cls='past';}
+      else if(sun){cls='closed';lab='휴무';}
+      else {cls='free';act='day-sel';dis=false;}
+      if(S.daySel===k){cls+=' sel';lab='여기로';}
+      cells+=`<button type="button" class="day ${cls}" ${act?`data-act="${act}" data-k="${k}"`:''} ${dis?'disabled':''} aria-label="${kdate(k)}${lab?' '+lab:''}">${d}${lab?`<small>${lab}</small>`:''}</button>`;
+    }
     picker=`<div class="divider"></div>
-      <p style="margin:0;font-weight:700;font-size:13px">일정 변경요청</p>
-      <p class="sub">${kdate(baseKey)} 회차를 같은 주 다른 날로 옮겨요</p>
-      <div class="wk" role="radiogroup" aria-label="변경할 날짜">${[0,1,2,3,4,5].map(i=>{const k=addDays(mon,i),cur=k===baseKey,past=k<=t;
-        return `<button type="button" role="radio" aria-checked="${S.daySel===k}" class="${cur?'cur':''}" data-act="day-sel" data-k="${k}" ${cur||past?'disabled':''}>${WD[parseKey(k).getDay()]}<small>${cur?'지정':parseKey(k).getDate()+'일'}</small></button>`;}).join('')}</div>
-      <p class="note">변경은 담당 매니저가 확인 후 적용됩니다. 이 주만 바뀌고, 다음 회차부터는 다시 원래 요일로 진행돼요.</p>
+      <p style="margin:0;font-weight:700;font-size:13px">세차 날짜 변경요청 · ${m+1}월</p>
+      <p class="sub">노란 칸이 이번 달 세차 날짜예요. 옮길 회차를 누르고, 바꾸고 싶은 날짜를 눌러 주세요. (같은 달 안에서만 · 일요일 휴무)</p>
+      <div class="cal" role="group" aria-label="${m+1}월 세차 달력">${cells}</div>
+      <div class="legend"><span><i class="lg open"></i>세차 날짜</span><span><i class="lg base"></i>옮길 회차</span><span><i class="lg sel"></i>바꿀 날짜</span></div>
+      ${S.daySel?`<p class="state">${ic('cal')}<span>${kdate(bk)} → <b>${kdate(S.daySel)}</b></span></p>`:''}
+      <p class="note">변경은 담당 매니저가 확인 후 적용됩니다. 고른 회차만 바뀌고, 다른 회차는 그대로예요.</p>
       <div style="display:flex;gap:10px"><button type="button" class="btn2" style="flex:1" data-act="day-cancel">취소</button><button type="button" class="btn" style="flex:1.4" data-act="day-apply" ${S.daySel?'':'disabled'}>변경 요청<span class="arr">${ic('arrow')}</span></button></div>`;
   }
   return `<section class="card" aria-label="정기권">
@@ -544,7 +568,7 @@ function planCard(){
     ${total?`<div class="pass">${Array.from({length:total},(_,i)=>`<span class="${i<used?'used':''}">${i+1}회</span>`).join('')}</div>`:''}
     ${hasWd()?`<div class="row" style="flex-wrap:wrap;gap:8px"><span class="wd-chip">${ic('cal')}${wdLine()}</span><span class="sub">지정 세차 요일${baseKey?' · 다음 회차 '+kdate(baseKey):''}</span></div>`:''}
     ${state}
-    ${!S.dayEdit&&!pend?(baseKey?`<button type="button" class="btn2 gold" data-act="day-edit">${ic('cal')}희망 요일 변경</button>`:`<p class="note">다음 회차 일정이 잡히면 요일 변경을 요청할 수 있어요.</p>`):''}
+    ${!S.dayEdit&&!pend?(baseKey?`<button type="button" class="btn2 gold" data-act="day-edit">${ic('cal')}세차 날짜 변경 요청</button>`:`<p class="note">다음 회차 일정이 잡히면 날짜 변경을 요청할 수 있어요.</p>`):''}
     ${picker}
   </section>`;
 }
@@ -772,14 +796,15 @@ document.addEventListener('click',async e=>{
       catch(err){ S.busy=false; render(); toast(friendly(err),true); }
       break;
     }
-    case 'day-edit': S.dayEdit=true; S.daySel=null; render(); break;
-    case 'day-cancel': S.dayEdit=false; S.daySel=null; render(); break;
+    case 'day-edit': S.dayEdit=true; S.daySel=null; S.dayBase=null; render(); break;
+    case 'day-base': S.dayBase=t.dataset.k; S.daySel=null; render(); break;
+    case 'day-cancel': S.dayEdit=false; S.daySel=null; S.dayBase=null; render(); break;
     case 'day-sel': S.daySel=t.dataset.k; render(); break;
     case 'day-apply': {
-      const base=nextFutureJob(); if(!base||!S.daySel) break;
+      const nb=nextFutureJob(), base=S.dayBase?{wash_date:S.dayBase}:nb; if(!base||!S.daySel) break;
       S.dialog={icon:'cal',title:'일정 변경을 요청할까요?',big:`${kdate(base.wash_date)} → ${kdate(S.daySel)}`,
-        body:'이 주만 바뀌고, 다음 회차부터는 다시 원래 요일로 진행돼요. 확인을 누르면 담당 매니저에게 알림이 가요.',
-        run:()=>rpc('submit_customer_request',{p_type:'schedule',p_target_date:S.daySel,p_base_date:base.wash_date}).then(()=>{S.dayEdit=false;S.daySel=null;}),
+        body:'고른 회차만 바뀌고, 다른 회차는 그대로예요. 확인을 누르면 담당 매니저에게 알림이 가요.',
+        run:()=>rpc('submit_customer_request',{p_type:'schedule',p_target_date:S.daySel,p_base_date:base.wash_date}).then(()=>{S.dayEdit=false;S.daySel=null;S.dayBase=null;}),
         ok:'일정 변경을 요청했어요.'};
       renderLayer(); break;
     }
