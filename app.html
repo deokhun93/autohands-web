@@ -440,7 +440,7 @@ function heroCard(){
   if(!j){
     return `<article class="hero"><span class="pill">${ic('cal',14)}다음 세차</span>
       <div class="when">일정을 준비하고 있어요</div>
-      <p class="detail">${p.wash_weekday!=null?`지정 요일은 ${cycleText()} ${WDF[p.wash_weekday]}이에요. 일정이 잡히면 여기에 보여드릴게요.`:'세차 일정이 잡히면 여기에 보여드릴게요.'}</p></article>`;
+      <p class="detail">${hasWd()?`지정 요일은 ${wdLine()}이에요. 일정이 잡히면 여기에 보여드릴게요.`:'세차 일정이 잡히면 여기에 보여드릴게요.'}</p></article>`;
   }
   const moved=j.moved_from?`<span class="pill">${ic('cal',14)}이 주만 변경 · 원래 ${kdate(j.moved_from)}</span>`:'';
   const inter=j.interior?`<span class="pill">${ic('sparkle',14)}실내세차 포함</span>`:'';
@@ -465,6 +465,12 @@ function heroCard(){
     <p class="detail">오늘 세차가 진행돼요. 끝나면 바로 알려드릴게요.</p>${moved}${inter}${stepper(1)}</article>`;
 }
 function cycleText(){ const p=S.profile; return p.wash_plan===2?'격주':'매주'; }
+/* 정기권별 세차 요일 글 (월 2·3·4·8·12회) */
+function hasWd(){ const p=S.profile||{}; return p.wash_weekday!=null||p.wash_plan===3; }
+function wdLine(){ const p=S.profile||{};
+  if(p.wash_plan===3) return '달마다 정해 드리는 날짜 3일';
+  if((p.wash_plan===8||p.wash_plan===12)&&p.wash_days&&p.wash_days.length>1){ const o=[1,2,3,4,5,6,0]; return '매주 '+[...p.wash_days].sort((a,b)=>o.indexOf(a)-o.indexOf(b)).map(d=>WDF[d].slice(0,1)).join('·')+'요일'; }
+  return p.wash_weekday!=null?`${cycleText()} ${WDF[p.wash_weekday]}`:''; }
 function planName(){ const p=S.profile; return p.product || (p.wash_plan?`월 ${p.wash_plan}회 정기권`:'정기권'); }
 function interiorState(){
   const t=todayKey();
@@ -521,7 +527,7 @@ function planCard(){
   const appliedJob=S.jobs.find(j=>j.moved_from&&j.wash_date>=t);
   let state='';
   if(pend) state=`<p class="state">${ic('clock')}<span>${kdate(pend.base_date)} → ${kdate(pend.target_date)} 변경 요청됨 · 담당 매니저가 확인하고 있어요</span></p>`;
-  else if(appliedJob) state=`<p class="state ok">${ic('check')}<span>${kdate(appliedJob.wash_date)}로 이 주만 변경되었어요 · 다음 회차부터 다시 ${p.wash_weekday!=null?cycleText()+' '+WDF[p.wash_weekday]:'원래 요일'}</span></p>`;
+  else if(appliedJob) state=`<p class="state ok">${ic('check')}<span>${kdate(appliedJob.wash_date)}로 이 주만 변경되었어요 · 다음 회차부터 다시 ${hasWd()?wdLine():'원래 요일'}</span></p>`;
   let picker='';
   if(S.dayEdit&&baseKey){
     const d=parseKey(baseKey).getDay(), mon=addDays(baseKey,(d===0?-6:1-d));
@@ -536,7 +542,7 @@ function planCard(){
   return `<section class="card" aria-label="정기권">
     <div class="row"><span class="bubble">${ic('clock')}</span><div class="grow"><h2 class="h">${esc(planName())}</h2><p class="sub">${total?`이번 달 ${total}회 중 ${Math.min(used,total)}회 이용`:`이번 달 ${used}회 이용`}</p></div></div>
     ${total?`<div class="pass">${Array.from({length:total},(_,i)=>`<span class="${i<used?'used':''}">${i+1}회</span>`).join('')}</div>`:''}
-    ${p.wash_weekday!=null?`<div class="row" style="flex-wrap:wrap;gap:8px"><span class="wd-chip">${ic('cal')}${cycleText()} ${WDF[p.wash_weekday]}</span><span class="sub">지정 세차 요일${baseKey?' · 다음 회차 '+kdate(baseKey):''}</span></div>`:''}
+    ${hasWd()?`<div class="row" style="flex-wrap:wrap;gap:8px"><span class="wd-chip">${ic('cal')}${wdLine()}</span><span class="sub">지정 세차 요일${baseKey?' · 다음 회차 '+kdate(baseKey):''}</span></div>`:''}
     ${state}
     ${!S.dayEdit&&!pend?(baseKey?`<button type="button" class="btn2 gold" data-act="day-edit">${ic('cal')}희망 요일 변경</button>`:`<p class="note">다음 회차 일정이 잡히면 요일 변경을 요청할 수 있어요.</p>`):''}
     ${picker}
@@ -616,7 +622,7 @@ function meView(){
   const p=S.profile;
   return `<div class="appbar"><h1 class="h">내 정보</h1></div>
   <div class="card"><div class="row"><span class="bubble">${ic('user')}</span><div class="grow"><h2 class="h">${esc(p.name||p.account_name)}</h2><p class="sub">아이디 ${esc(p.login_id)} · ${esc(maskPhone(p.phone))}</p></div></div>
-    <dl class="kv"><dt>차량</dt><dd>${esc(p.car_number||'')}${p.car_model?' ('+esc(p.car_model)+')':''}</dd><dt>아파트</dt><dd>${esc([p.complex,p.unit].filter(Boolean).join(' '))}</dd><dt>이용권</dt><dd>${esc(planName())}</dd>${p.wash_weekday!=null?`<dt>지정 요일</dt><dd>${cycleText()} ${WDF[p.wash_weekday]}</dd>`:''}</dl></div>
+    <dl class="kv"><dt>차량</dt><dd>${esc(p.car_number||'')}${p.car_model?' ('+esc(p.car_model)+')':''}</dd><dt>아파트</dt><dd>${esc([p.complex,p.unit].filter(Boolean).join(' '))}</dd><dt>이용권</dt><dd>${esc(planName())}</dd>${hasWd()?`<dt>지정 요일</dt><dd>${wdLine()}</dd>`:''}</dl></div>
   ${!STAFF&&(S.cars||[]).length>1?`<div class="card"><h2 class="h" style="font-size:16px">내 차량 ${S.cars.length}대</h2><dl class="kv">${S.cars.map(c=>`<dt>${esc(c.car_number||'')}</dt><dd>${esc(c.car_model||'')}${c.complex?' · '+esc([c.complex,c.unit].filter(Boolean).join(' ')):''}${c.wash_plan?` · 월 ${c.wash_plan}회`:''}${c.wash_status&&c.wash_status!=='세차중'?' · '+esc(c.wash_status):''}</dd>`).join('')}</dl></div>`:''}
   ${STAFF?'':pwCard()}
   ${pushCard(false)}
