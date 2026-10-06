@@ -578,6 +578,7 @@ const wonK=n=>Number(n||0).toLocaleString('ko-KR')+'원';
 function iPriceNote(){
   const k=S.icon;
   if(k&&k.plan==='service') return `<p class="iprice">* 이 차량은 <b>실내세차 서비스</b> 계약이라 실내세차 비용이 없어요.</p>`;
+  if(k&&/^m[2-8]$/.test(k.plan||'')) return `<p class="iprice">* 이 차량은 <b>매달 세차 ${k.plan.slice(1)}회에 실내세차가 포함</b>된 계약이에요. 추가로 신청하면 1회 ${wonK(k.price)}이 더해져요.</p>`;
   if(k&&k.plan==='monthly') return `<p class="iprice">* 이 차량은 <b>매달 첫 세차 때 실내세차가 포함</b>된 계약이에요. 추가로 신청하면 1회 ${wonK(k.price)}이 더해져요.</p>`;
   if(k&&k.plan==='every') return `<p class="iprice">* 이 차량은 <b>세차할 때마다 실내세차가 포함</b>된 계약이에요. 따로 신청하지 않아도 돼요. (추가 신청 시 1회 ${wonK(k.price)})</p>`;
   if(k&&k.plan==='request'&&S.iprice&&k.price!==S.iprice.price) return `<p class="iprice">* 내 차 실내세차 비용: 1회 ${wonK(k.price)} (계약 금액)</p>`;
