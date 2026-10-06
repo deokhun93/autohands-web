@@ -296,7 +296,7 @@ function friendly(err){
   if(/[가-힣]/.test(m)) return m;
   return '문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
 }
-const STAFF_READ={get_my_profile:'staff_view_profile',get_my_jobs:'staff_view_jobs',get_my_notifications:'staff_view_notifications',get_my_requests:'staff_view_requests',list_my_interior_slots:'staff_view_slots',get_my_interior_price:'staff_view_interior_price'};
+const STAFF_READ={get_my_profile:'staff_view_profile',get_my_jobs:'staff_view_jobs',get_my_notifications:'staff_view_notifications',get_my_requests:'staff_view_requests',list_my_interior_slots:'staff_view_slots',get_my_interior_price:'staff_view_interior_price',get_my_interior_contract:'staff_view_interior_contract'};
 async function rpc(name,args){
   if(STAFF){
     if(Date.now()>=STAFF.exp){ S.staffExpired=true; render(); throw new Error('관리자 보기 시간이 끝났어요.'); }
@@ -365,6 +365,7 @@ async function loadAll(silent){
       try{ S.slots=await rpc('list_my_interior_slots',{p_from:addDays(todayKey(),1),p_to:addDays(todayKey(),92)})||[]; S.slotsLoaded=true; }catch(_){}
       // 실내세차 금액 (차종으로 자동 구분 · 세단/SUV)
       try{ const pr=await rpc('get_my_interior_price'); S.iprice=(pr&&pr[0])||null; }catch(_){ S.iprice=null; }
+      try{ const ct=await rpc('get_my_interior_contract'); S.icon=(ct&&ct[0])||null; }catch(_){ S.icon=null; }
       if(!STAFF){ try{ S.pwInitial=!!(await rpc('my_pw_initial')); }catch(_){ S.pwInitial=false; }
         try{ S.cars=await rpc('get_my_cars')||[]; }catch(_){ S.cars=[]; } }
     }
@@ -545,6 +546,11 @@ function planCard(){
 /* ---------- 화면: 실내세차 ---------- */
 const wonK=n=>Number(n||0).toLocaleString('ko-KR')+'원';
 function iPriceNote(){
+  const k=S.icon;
+  if(k&&k.plan==='service') return `<p class="iprice">* 이 차량은 <b>실내세차 서비스</b> 계약이라 실내세차 비용이 없어요.</p>`;
+  if(k&&k.plan==='monthly') return `<p class="iprice">* 이 차량은 <b>매달 첫 세차 때 실내세차가 포함</b>된 계약이에요. 추가로 신청하면 1회 ${wonK(k.price)}이 더해져요.</p>`;
+  if(k&&k.plan==='every') return `<p class="iprice">* 이 차량은 <b>세차할 때마다 실내세차가 포함</b>된 계약이에요. 따로 신청하지 않아도 돼요. (추가 신청 시 1회 ${wonK(k.price)})</p>`;
+  if(k&&k.plan==='request'&&S.iprice&&k.price!==S.iprice.price) return `<p class="iprice">* 내 차 실내세차 비용: 1회 ${wonK(k.price)} (계약 금액)</p>`;
   const r=S.iprice; if(!r) return '';
   const mine=r.car_class?` · 내 차${r.car_model?' '+esc(r.car_model):''}(${r.car_class==='SUV'?'SUV':'세단'}) ${wonK(r.price)}`:'';
   return `<p class="iprice">* 내부세차 비용: 세단 ${wonK(r.sedan_price)} / SUV ${wonK(r.suv_price)}${mine}</p>`;
@@ -775,7 +781,7 @@ document.addEventListener('click',async e=>{
     case 'c-day': S.cDay=t.dataset.k; render(); break;
     case 'int-apply': {
       if(!S.cDay) break; const k=S.cDay;
-      S.dialog={icon:'sparkle',title:'실내세차 신청하시겠습니까?',big:kdate(k),body:'확인을 누르면 담당 매니저에게 알림이 가요.'+(S.iprice&&S.iprice.car_class?` (* 내부세차 비용 ${wonK(S.iprice.price)})`:''),
+      S.dialog={icon:'sparkle',title:'실내세차 신청하시겠습니까?',big:kdate(k),body:'확인을 누르면 담당 매니저에게 알림이 가요.'+(S.icon?` (* 내부세차 비용 ${S.icon.price?wonK(S.icon.price):'없음'})`:S.iprice&&S.iprice.car_class?` (* 내부세차 비용 ${wonK(S.iprice.price)})`:''),
         run:()=>rpc('submit_customer_request',{p_type:'interior',p_target_date:k}).then(()=>{S.cDay=null;return loadSlots();},e=>{S.cDay=null;loadSlots();throw e;}),
         ok:'실내세차를 신청했어요.'};
       renderLayer(); break;
