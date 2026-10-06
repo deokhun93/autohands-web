@@ -95,6 +95,7 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .state svg{width:18px;height:18px;margin-top:1px}
 
 /* forms */
+.car-chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}.car-chip{flex:none;display:flex;flex-direction:column;align-items:flex-start;gap:2px;border:1.5px solid var(--line);background:var(--card);border-radius:12px;padding:8px 12px;cursor:pointer;font:inherit;color:inherit;text-align:left}.car-chip b{font-size:15px}.car-chip small{font-size:11.5px;color:var(--sub,#6B7280)}.car-chip[aria-pressed="true"]{border-color:var(--ink,#0C1422);background:var(--ink,#0C1422);color:#fff}.car-chip[aria-pressed="true"] small{color:#E2C77F}
 .seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:12px;padding:4px;background:var(--card)}
 .seg button{border:0;border-radius:9px;min-height:42px;background:none;font-weight:700;color:var(--sub)}
 .seg button[aria-selected="true"]{background:var(--ink);color:var(--gold-2)}
@@ -272,8 +273,10 @@ const when=ts=>{const d=new Date(ts),k=keyOf(d),t=todayKey();if(k===t)return '�
 const maskPhone=p=>{const d=String(p||'').replace(/\D/g,'');return d.length>=10?`${d.slice(0,3)}-****-${d.slice(-4)}`:p;};
 const fmtPhone=v=>{let d=v.replace(/\D/g,'').slice(0,11);return d.length>7?`${d.slice(0,3)}-${d.slice(3,d.length-4)}-${d.slice(-4)}`:d.length>3?`${d.slice(0,3)}-${d.slice(3)}`:d;};
 const toEmail=id=>`${id.trim().toLowerCase()}@${EMAIL_DOMAIN}`;
-// 계약 고객 아이디 = 차량번호 숫자만 (예: 05수0536 → 050536). 차량번호를 그대로 적어도 숫자만 골라 로그인해요
-const loginIdOf=id=>{ const t=String(id||'').trim(); return /[가-힣]/.test(t)&&/\d{4}/.test(t.replace(/\D/g,''))?t.replace(/\D/g,''):t.replace(/\s/g,''); };
+// 계약 고객 아이디 = 휴대폰 번호 숫자 (010-1234-5678 → 01012345678). 하이픈을 넣어 적어도 숫자만 골라 로그인해요
+const loginIdOf=id=>{ const t=String(id||'').trim(), d=t.replace(/[\s\-]/g,'');
+  if(/^01\d{8,9}(_\d+)?$/.test(d)) return d;
+  return /[가-힣]/.test(t)&&/\d{4}/.test(t.replace(/\D/g,''))?t.replace(/\D/g,''):t.replace(/\s/g,''); };
 
 const S={
   ready:false, session:null, profile:null, jobs:[], notes:[], reqs:[], slots:[],
@@ -362,7 +365,8 @@ async function loadAll(silent){
       try{ S.slots=await rpc('list_my_interior_slots',{p_from:addDays(todayKey(),1),p_to:addDays(todayKey(),92)})||[]; S.slotsLoaded=true; }catch(_){}
       // 실내세차 금액 (차종으로 자동 구분 · 세단/SUV)
       try{ const pr=await rpc('get_my_interior_price'); S.iprice=(pr&&pr[0])||null; }catch(_){ S.iprice=null; }
-      if(!STAFF){ try{ S.pwInitial=!!(await rpc('my_pw_initial')); }catch(_){ S.pwInitial=false; } }
+      if(!STAFF){ try{ S.pwInitial=!!(await rpc('my_pw_initial')); }catch(_){ S.pwInitial=false; }
+        try{ S.cars=await rpc('get_my_cars')||[]; }catch(_){ S.cars=[]; } }
     }
     S.loadErr='';
   }catch(e){ S.loadErr=friendly(e); if(!silent) toast(S.loadErr,true); }
@@ -379,7 +383,7 @@ function authView(){
   const su=S.authTab==='signup';
   return `<div class="auth-hero"><span class="big">${ic('drop')}</span><b>AUTOHANDS</b><p class="sub">오토핸즈 정기권 고객 전용</p></div>
   <div class="seg" role="tablist"><button type="button" role="tab" aria-selected="${!su}" data-act="auth-tab" data-t="login">로그인</button><button type="button" role="tab" aria-selected="${su}" data-act="auth-tab" data-t="signup">회원가입</button></div>
-  ${su?`<p class="state">${ic('info')}<span><b>이미 계약하신 고객은 가입하지 않아도 돼요.</b><br>[로그인]에서 아이디(차량번호 숫자)와 처음 비밀번호 1234로 들어오세요.</span></p>`:''}
+  ${su?`<p class="state">${ic('info')}<span><b>이미 계약하신 고객은 가입하지 않아도 돼요.</b><br>[로그인]에서 아이디(휴대폰 번호)와 처음 비밀번호 1234로 들어오세요.</span></p>`:''}
   <form id="auth-form" class="card" novalidate>
   ${su?`
     <div class="two"><div class="field"><label for="su-name">이름</label><input id="su-name" autocomplete="name"></div>
@@ -390,13 +394,13 @@ function authView(){
     <div class="field"><label for="su-pw2">비밀번호 확인</label>${pwBox('su-pw2','new-password','')}</div></div>
     <label class="agree"><input type="checkbox" id="su-agree"><span>개인정보(이름, 휴대폰 번호, 차량번호) 수집·이용에 동의합니다. (필수) <button type="button" class="link" style="padding:0" data-act="policy">내용 보기</button></span></label>`
   :`
-    <div class="field"><label for="li-id">아이디</label><input id="li-id" autocomplete="username" autocapitalize="none" placeholder="차량번호 숫자만 (예: 05수0536 → 050536)"></div>
+    <div class="field"><label for="li-id">아이디</label><input id="li-id" autocomplete="username" autocapitalize="none" inputmode="tel" placeholder="휴대폰 번호 (예: 01012345678)"></div>
     <div class="field"><label for="li-pw">비밀번호</label>${pwBox('li-pw','current-password','')}</div>
     <label class="auto"><input type="checkbox" id="li-auto" ${getAuto()?'checked':''}><span>자동 로그인</span></label>`}
     <p class="form-err" id="auth-err" role="alert">${esc(S.authErr)}</p>
     <button class="btn full" type="submit" ${S.busy?'disabled':''}>${S.busy?'처리 중...':su?'가입하기':'로그인'}<span class="arr">${ic('arrow')}</span></button>
   </form>
-  <p class="note" style="text-align:center">${su?'가입하면 담당 매니저가 계약 정보를 확인한 뒤 이용하실 수 있어요.':'계약 고객 아이디는 <b>차량번호의 숫자</b>, 처음 비밀번호는 <b>1234</b>예요.<br>로그인한 뒤 [내 정보]에서 비밀번호를 꼭 바꿔 주세요. 로그인이 안 되면 담당 매니저에게 문의해 주세요.'}</p>
+  <p class="note" style="text-align:center">${su?'가입하면 담당 매니저가 계약 정보를 확인한 뒤 이용하실 수 있어요.':'계약 고객 아이디는 <b>휴대폰 번호</b>(숫자만), 처음 비밀번호는 <b>1234</b>예요.<br>로그인한 뒤 [내 정보]에서 비밀번호를 꼭 바꿔 주세요. 로그인이 안 되면 담당 매니저에게 문의해 주세요.'}</p>
   <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지로</a></p>`;
 }
 
@@ -477,6 +481,12 @@ function interiorButton(){
   }
   return `<button type="button" class="btn2 gold" data-act="go" data-v="interior">${ic('sparkle')}실내세차 신청${open.length?` <small style="font-weight:600;opacity:.8">· ${open.length}일 가능</small>`:''}</button>`;
 }
+/* 여러 대 차량: 차량 고르기 (고른 차량 기준으로 일정 · 실내세차가 바뀌어요) */
+function carBar(label){
+  const cars=STAFF?[]:(S.cars||[]); if(cars.length<2) return '';
+  return `<div class="card" style="padding:12px 14px"><p class="sub" style="margin:0 0 8px;font-weight:700">${label||`내 차량 ${cars.length}대 · 눌러서 바꿔 보세요`}</p>
+    <div class="car-chips">${cars.map(c=>`<button type="button" class="car-chip" aria-pressed="${c.is_active}" data-act="car-pick" data-id="${c.customer_id}"><b>${esc(c.car_number||'')}</b><small>${esc(c.car_model||'')}${c.complex?` · ${esc(c.complex)}`:''}${c.wash_status&&c.wash_status!=='세차중'?` · ${esc(c.wash_status)}`:''}</small></button>`).join('')}</div></div>`;
+}
 function homeView(){
   const p=S.profile, j=currentJob();
   const msgs=S.reqs.filter(r=>r.req_type==='msg').slice(0,2);
@@ -484,6 +494,7 @@ function homeView(){
   return `<div class="appbar">${logo()}<button type="button" class="icon-btn" data-act="go" data-v="alerts" aria-label="알림 ${unread()}개">${ic('bell')}${unread()?`<span class="badge">${unread()}</span>`:''}</button></div>
   <div><p class="sub">${kdate(todayKey())}</p><h1 class="h">${esc(p.name||p.account_name)} 님, 내 차 세차 현황이에요</h1></div>
   ${S.loadErr?`<p class="state warn">${ic('info')}<span>${esc(S.loadErr)}</span></p>`:''}
+  ${carBar()}
   ${S.pwInitial&&!STAFF?`<button type="button" class="state warn" data-act="go" data-v="me" style="width:100%;text-align:left;border:0;cursor:pointer">${ic('info')}<span><b>처음 비밀번호(1234)를 쓰고 있어요.</b> 눌러서 [내 정보]에서 비밀번호를 바꿔 주세요.</span></button>`:''}
   ${pushCard(true)}
   ${heroCard()}
@@ -557,6 +568,7 @@ function interiorView(){
   }
   const sel=S.cDay&&slots[S.cDay];
   return `<div class="appbar"><button type="button" class="icon-btn" data-act="go" data-v="home" aria-label="뒤로">${ic('back')}</button><h1 class="h" style="flex:1;font-size:19px">실내세차 신청</h1></div>
+  ${carBar('실내세차를 받을 차량을 먼저 골라 주세요')}
   <div class="card" style="background:var(--ink);color:#fff;border-color:var(--ink)"><div class="row"><span class="bubble" style="background:rgba(226,199,127,.15);border-color:transparent;color:var(--gold-2)">${ic('home')}</span><div class="grow"><b>${esc(p.complex||'우리 단지')}</b><p class="sub" style="color:#C4CBD7">직원이 열어둔 날짜만 신청할 수 있어요 · 건당 결제</p></div></div></div>
   ${mine?(mine.status==='승인'?`<p class="state ok">${ic('check')}<span>${kdate(mine.target_date)} 실내세차가 확정되었어요</span></p>`:`<p class="state">${ic('clock')}<span>${kdate(mine.target_date)} 실내세차 신청됨 · 담당 매니저가 확인하고 있어요</span></p>`):''}
   <div class="card">
@@ -599,6 +611,7 @@ function meView(){
   return `<div class="appbar"><h1 class="h">내 정보</h1></div>
   <div class="card"><div class="row"><span class="bubble">${ic('user')}</span><div class="grow"><h2 class="h">${esc(p.name||p.account_name)}</h2><p class="sub">아이디 ${esc(p.login_id)} · ${esc(maskPhone(p.phone))}</p></div></div>
     <dl class="kv"><dt>차량</dt><dd>${esc(p.car_number||'')}${p.car_model?' ('+esc(p.car_model)+')':''}</dd><dt>아파트</dt><dd>${esc([p.complex,p.unit].filter(Boolean).join(' '))}</dd><dt>이용권</dt><dd>${esc(planName())}</dd>${p.wash_weekday!=null?`<dt>지정 요일</dt><dd>${cycleText()} ${WDF[p.wash_weekday]}</dd>`:''}</dl></div>
+  ${!STAFF&&(S.cars||[]).length>1?`<div class="card"><h2 class="h" style="font-size:16px">내 차량 ${S.cars.length}대</h2><dl class="kv">${S.cars.map(c=>`<dt>${esc(c.car_number||'')}</dt><dd>${esc(c.car_model||'')}${c.complex?' · '+esc([c.complex,c.unit].filter(Boolean).join(' ')):''}${c.wash_plan?` · 월 ${c.wash_plan}회`:''}${c.wash_status&&c.wash_status!=='세차중'?' · '+esc(c.wash_status):''}</dd>`).join('')}</dl></div>`:''}
   ${STAFF?'':pwCard()}
   ${pushCard(false)}
   ${installCard()}
@@ -723,6 +736,10 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act;
   switch(a){
     case 'auth-tab': S.authTab=t.dataset.t; S.authErr=''; render(); break;
+    case 'car-pick': { const id=Number(t.dataset.id); if(!id||(S.cars||[]).find(c=>c.customer_id===id&&c.is_active)) break;
+      try{ await rpc('set_my_active_car',{p_customer_id:id}); S.slots=[]; S.slotsLoaded=false; S.cDay=null; S.daySel=null; await loadAll(true);
+        const c=(S.cars||[]).find(x=>x.customer_id===id); toast(`${c?c.car_number:'차량'} 기준으로 바꿨어요.`); }
+      catch(err){ toast(friendly(err),true); } break; }
     case 'policy': S.dialog={type:'policy'}; renderLayer(); break;
     case 'close': if(!S.busy){ S.dialog=null; renderLayer(); } break;
     case 'logout': if(STAFF){ staffExit(); break; } await db.auth.signOut(); break;
