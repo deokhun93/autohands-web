@@ -272,6 +272,8 @@ const when=ts=>{const d=new Date(ts),k=keyOf(d),t=todayKey();if(k===t)return '�
 const maskPhone=p=>{const d=String(p||'').replace(/\D/g,'');return d.length>=10?`${d.slice(0,3)}-****-${d.slice(-4)}`:p;};
 const fmtPhone=v=>{let d=v.replace(/\D/g,'').slice(0,11);return d.length>7?`${d.slice(0,3)}-${d.slice(3,d.length-4)}-${d.slice(-4)}`:d.length>3?`${d.slice(0,3)}-${d.slice(3)}`:d;};
 const toEmail=id=>`${id.trim().toLowerCase()}@${EMAIL_DOMAIN}`;
+// 계약 고객 아이디 = 차량번호 숫자만 (예: 05수0536 → 050536). 차량번호를 그대로 적어도 숫자만 골라 로그인해요
+const loginIdOf=id=>{ const t=String(id||'').trim(); return /[가-힣]/.test(t)&&/\d{4}/.test(t.replace(/\D/g,''))?t.replace(/\D/g,''):t.replace(/\s/g,''); };
 
 const S={
   ready:false, session:null, profile:null, jobs:[], notes:[], reqs:[], slots:[],
@@ -360,6 +362,7 @@ async function loadAll(silent){
       try{ S.slots=await rpc('list_my_interior_slots',{p_from:addDays(todayKey(),1),p_to:addDays(todayKey(),92)})||[]; S.slotsLoaded=true; }catch(_){}
       // 실내세차 금액 (차종으로 자동 구분 · 세단/SUV)
       try{ const pr=await rpc('get_my_interior_price'); S.iprice=(pr&&pr[0])||null; }catch(_){ S.iprice=null; }
+      if(!STAFF){ try{ S.pwInitial=!!(await rpc('my_pw_initial')); }catch(_){ S.pwInitial=false; } }
     }
     S.loadErr='';
   }catch(e){ S.loadErr=friendly(e); if(!silent) toast(S.loadErr,true); }
@@ -376,6 +379,7 @@ function authView(){
   const su=S.authTab==='signup';
   return `<div class="auth-hero"><span class="big">${ic('drop')}</span><b>AUTOHANDS</b><p class="sub">오토핸즈 정기권 고객 전용</p></div>
   <div class="seg" role="tablist"><button type="button" role="tab" aria-selected="${!su}" data-act="auth-tab" data-t="login">로그인</button><button type="button" role="tab" aria-selected="${su}" data-act="auth-tab" data-t="signup">회원가입</button></div>
+  ${su?`<p class="state">${ic('info')}<span><b>이미 계약하신 고객은 가입하지 않아도 돼요.</b><br>[로그인]에서 아이디(차량번호 숫자)와 처음 비밀번호 1234로 들어오세요.</span></p>`:''}
   <form id="auth-form" class="card" novalidate>
   ${su?`
     <div class="two"><div class="field"><label for="su-name">이름</label><input id="su-name" autocomplete="name"></div>
@@ -386,13 +390,13 @@ function authView(){
     <div class="field"><label for="su-pw2">비밀번호 확인</label>${pwBox('su-pw2','new-password','')}</div></div>
     <label class="agree"><input type="checkbox" id="su-agree"><span>개인정보(이름, 휴대폰 번호, 차량번호) 수집·이용에 동의합니다. (필수) <button type="button" class="link" style="padding:0" data-act="policy">내용 보기</button></span></label>`
   :`
-    <div class="field"><label for="li-id">아이디</label><input id="li-id" autocomplete="username" autocapitalize="none"></div>
+    <div class="field"><label for="li-id">아이디</label><input id="li-id" autocomplete="username" autocapitalize="none" placeholder="차량번호 숫자만 (예: 05수0536 → 050536)"></div>
     <div class="field"><label for="li-pw">비밀번호</label>${pwBox('li-pw','current-password','')}</div>
     <label class="auto"><input type="checkbox" id="li-auto" ${getAuto()?'checked':''}><span>자동 로그인</span></label>`}
     <p class="form-err" id="auth-err" role="alert">${esc(S.authErr)}</p>
     <button class="btn full" type="submit" ${S.busy?'disabled':''}>${S.busy?'처리 중...':su?'가입하기':'로그인'}<span class="arr">${ic('arrow')}</span></button>
   </form>
-  <p class="note" style="text-align:center">${su?'가입하면 담당 매니저가 계약 정보를 확인한 뒤 이용하실 수 있어요.':'아직 계정이 없으면 위의 회원가입을 눌러 주세요.'}</p>
+  <p class="note" style="text-align:center">${su?'가입하면 담당 매니저가 계약 정보를 확인한 뒤 이용하실 수 있어요.':'계약 고객 아이디는 <b>차량번호의 숫자</b>, 처음 비밀번호는 <b>1234</b>예요.<br>로그인한 뒤 [내 정보]에서 비밀번호를 꼭 바꿔 주세요. 로그인이 안 되면 담당 매니저에게 문의해 주세요.'}</p>
   <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지로</a></p>`;
 }
 
@@ -480,6 +484,7 @@ function homeView(){
   return `<div class="appbar">${logo()}<button type="button" class="icon-btn" data-act="go" data-v="alerts" aria-label="알림 ${unread()}개">${ic('bell')}${unread()?`<span class="badge">${unread()}</span>`:''}</button></div>
   <div><p class="sub">${kdate(todayKey())}</p><h1 class="h">${esc(p.name||p.account_name)} 님, 내 차 세차 현황이에요</h1></div>
   ${S.loadErr?`<p class="state warn">${ic('info')}<span>${esc(S.loadErr)}</span></p>`:''}
+  ${S.pwInitial&&!STAFF?`<button type="button" class="state warn" data-act="go" data-v="me" style="width:100%;text-align:left;border:0;cursor:pointer">${ic('info')}<span><b>처음 비밀번호(1234)를 쓰고 있어요.</b> 눌러서 [내 정보]에서 비밀번호를 바꿔 주세요.</span></button>`:''}
   ${pushCard(true)}
   ${heroCard()}
   <section class="card" aria-label="내 차량">
@@ -581,11 +586,20 @@ function installCard(){
   return `<div class="card"><div class="row"><span class="bubble">${ic('home')}</span><div class="grow"><h2 class="h">홈 화면에 앱 설치</h2><p class="sub">${deferredInstall?'버튼을 누르면 휴대폰에 오토핸즈 앱이 설치돼요.':isIOS()?'Safari 아래쪽 공유 버튼(□↑) → "홈 화면에 추가"를 눌러 주세요.':'크롬 오른쪽 위 ⋮ 메뉴 → "앱 설치"를 눌러 주세요.'}</p></div></div>
     ${deferredInstall?`<button type="button" class="btn full" data-act="install">앱 설치하기<span class="arr">${ic('arrow')}</span></button>`:''}</div>`;
 }
+/* 회원정보 수정: 비밀번호 변경 */
+function pwCard(){
+  return `<form id="pw-form" class="card" novalidate><div class="row"><span class="bubble">${ic('user')}</span><div class="grow"><h2 class="h">비밀번호 변경</h2><p class="sub">${S.pwInitial?'<b style="color:var(--red,#C62828)">지금 처음 비밀번호(1234)를 쓰고 있어요.</b> 나만 아는 비밀번호로 바꿔 주세요.':'새 비밀번호를 두 번 입력해 주세요.'}</p></div></div>
+    <div class="field"><label for="np-1">새 비밀번호</label>${pwBox('np-1','new-password','6자 이상')}</div>
+    <div class="field"><label for="np-2">새 비밀번호 확인</label>${pwBox('np-2','new-password','')}</div>
+    <p class="form-err" role="alert">${esc(S.pwErr||'')}</p>
+    <button class="btn full" type="submit" ${S.busy?'disabled':''}>${S.busy?'바꾸는 중...':'비밀번호 바꾸기'}</button></form>`;
+}
 function meView(){
   const p=S.profile;
   return `<div class="appbar"><h1 class="h">내 정보</h1></div>
   <div class="card"><div class="row"><span class="bubble">${ic('user')}</span><div class="grow"><h2 class="h">${esc(p.name||p.account_name)}</h2><p class="sub">아이디 ${esc(p.login_id)} · ${esc(maskPhone(p.phone))}</p></div></div>
     <dl class="kv"><dt>차량</dt><dd>${esc(p.car_number||'')}${p.car_model?' ('+esc(p.car_model)+')':''}</dd><dt>아파트</dt><dd>${esc([p.complex,p.unit].filter(Boolean).join(' '))}</dd><dt>이용권</dt><dd>${esc(planName())}</dd>${p.wash_weekday!=null?`<dt>지정 요일</dt><dd>${cycleText()} ${WDF[p.wash_weekday]}</dd>`:''}</dl></div>
+  ${STAFF?'':pwCard()}
   ${pushCard(false)}
   ${installCard()}
   <button type="button" class="btn2" data-act="logout">${ic('logout')}로그아웃</button>
@@ -781,7 +795,7 @@ document.addEventListener('submit',async e=>{
       const autoOn=!!(document.getElementById('li-auto')||{}).checked;
       setAuto(autoOn);
       S.busy=true; render(); refillLogin(loginId,loginPw,autoOn,pwShown);
-      const {error}=await db.auth.signInWithPassword({email:toEmail(loginId),password:loginPw});
+      const {error}=await db.auth.signInWithPassword({email:toEmail(loginIdOf(loginId)),password:loginPw});
       S.busy=false; if(error){ S.authErr=friendly(error); render(); refillLogin(loginId,'',autoOn,pwShown); }
       return;
     }
@@ -799,6 +813,18 @@ document.addEventListener('submit',async e=>{
     if(error){ S.authErr=friendly(error); render(); refill({name,phone,car,id}); return; }
     if(!data.session){ S.authErr='가입은 되었지만 바로 로그인되지 않았어요. 잠시 후 로그인해 보시고, 안 되면 담당 매니저에게 문의해 주세요.'; S.authTab='login'; render(); return; }
     toast('가입이 완료되었어요.'); setTimeout(kickPush,1500);
+    return;
+  }
+  if(e.target.id==='pw-form'){
+    const a=(document.getElementById('np-1')||{}).value||'', b=(document.getElementById('np-2')||{}).value||'';
+    S.pwErr= a.length<6?'비밀번호는 6자 이상으로 정해 주세요.': a!==b?'비밀번호 확인이 맞지 않아요.': a==='1234'||/^(\d)\1+$/.test(a)?'너무 쉬운 비밀번호예요. 다른 비밀번호로 정해 주세요.':'';
+    if(S.pwErr){ render(); return; }
+    S.busy=true; render();
+    const {error}=await db.auth.updateUser({password:a});
+    S.busy=false;
+    if(error){ S.pwErr=/different from the old|same/i.test(error.message||'')?'지금 비밀번호와 다른 비밀번호로 정해 주세요.':/weak|least|short/i.test(error.message||'')?'비밀번호가 너무 짧거나 쉬워요. 6자 이상, 숫자와 글자를 섞어 주세요.':friendly(error); render(); return; }
+    try{ await rpc('mark_my_password_changed'); }catch(_){}
+    S.pwInitial=false; S.pwErr=''; render(); toast('비밀번호를 바꿨어요. 다음부터 새 비밀번호로 로그인해 주세요.');
     return;
   }
   if(e.target.id==='relink-form'){
