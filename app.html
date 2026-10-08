@@ -208,6 +208,7 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .iprice{color:var(--sub);font-size:11.5px;margin:2px 4px 12px;line-height:1.5}
+.toast[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -758,7 +759,7 @@ let toastTimer;
 function toast(msg,err){
   let t=$('#toast'); if(!t){ t=document.createElement('div'); t.id='toast'; t.setAttribute('role','status'); document.body.appendChild(t); }
   t.className='toast'+(err?' err':''); t.innerHTML=`${ic(err?'info':'check')}<span>${esc(msg)}</span>`; t.hidden=false;
-  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.hidden=true;},3200);
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.hidden=true;},2000);
 }
 
 /* ---------- 동작 ---------- */
