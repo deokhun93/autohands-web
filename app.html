@@ -467,9 +467,8 @@ function heroCard(){
       <div class="when">오늘은 세차를<br>하지 못했어요</div>
       <p class="detail">다시 세차할 날짜를 담당 매니저가 안내해 드릴게요.</p></article>`;
   }
-  const a=j.queue_ahead||0;
   return `<article class="hero"><span class="pill">오늘 · 세차 대기</span>
-    <div class="when">${a===0?'다음 순서예요':`앞에 ${a}대 남았어요`}</div>
+    <div class="when">오늘 세차 예정이에요</div>
     <p class="detail">오늘 세차가 진행돼요. 끝나면 바로 알려드릴게요.</p>${moved}${inter}${stepper(1)}</article>`;
 }
 function cycleText(){ const p=S.profile; return p.wash_plan===2?'격주':'매주'; }
@@ -514,6 +513,7 @@ function homeView(){
   ${S.pwInitial&&!STAFF?`<button type="button" class="state warn" data-act="go" data-v="me" style="width:100%;text-align:left;border:0;cursor:pointer">${ic('info')}<span><b>처음 비밀번호(1234)를 쓰고 있어요.</b> 눌러서 [내 정보]에서 비밀번호를 바꿔 주세요.</span></button>`:''}
   ${pushCard(true)}
   ${heroCard()}
+  ${planCard()}
   <section class="card" aria-label="내 차량">
     <div class="row"><span class="bubble">${ic('car')}</span><div class="grow"><h2 class="h">${esc(p.car_number||'')}</h2><p class="sub">${esc([p.car_model,p.car_color].filter(Boolean).join(' · '))}${p.car_model||p.car_color?' · ':''}${esc([p.complex,p.unit].filter(Boolean).join(' '))}</p></div></div>
     <dl class="kv"><dt>세차 종류</dt><dd>${j&&j.interior?'외부 + 실내세차':'외부 세차'}</dd></dl>
@@ -524,8 +524,7 @@ function homeView(){
     ${msgs.length?`<ul class="my-msgs">${msgs.map(m=>`<li><p>${esc(m.message)}</p><time>${when(m.created_at)} · ${m.status==='확인'?'매니저 확인':'전송됨'}</time></li>`).join('')}</ul>`:''}
     <div class="field"><label for="msg">요구사항</label><textarea id="msg" maxlength="500" placeholder="예: 트렁크는 열지 말아주세요.">${esc(S.msgDraft)}</textarea></div>
     <button type="button" class="btn full" id="msg-send" data-act="send-msg" ${S.msgDraft.trim()&&!S.busy?'':'disabled'}>매니저에게 보내기<span class="arr">${ic('send')}</span></button>
-  </section>
-  ${planCard()}`;
+  </section>`;
 }
 function planCard(){
   const p=S.profile, t=todayKey(), ym=t.slice(0,7);
