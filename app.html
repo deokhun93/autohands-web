@@ -142,6 +142,7 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .my-msgs li{max-width:88%;background:var(--ink);color:#fff;border-radius:14px 14px 3px 14px;padding:8px 12px}
 .my-msgs p{margin:0;font-size:13.5px;white-space:pre-wrap}
 .my-msgs time{font-size:11px;color:#AEB6C4}
+.my-msgs li.rep{align-self:flex-start;background:#EAF2FB;color:var(--ink);border-radius:14px 14px 14px 3px}.my-msgs li.rep b{display:block;font-size:11.5px;color:#1D3A6E;margin-bottom:2px}.my-msgs li.rep time{color:#6B7A90}
 
 /* calendar */
 .cal-head{display:flex;align-items:center;justify-content:space-between}
@@ -521,7 +522,7 @@ function homeView(){
   </section>
   <section class="card" aria-labelledby="mgr-h">
     <div class="row"><span class="bubble">${ic('msg')}</span><div class="grow"><h2 class="h" id="mgr-h">담당 매니저에게 메시지</h2><p class="sub">요청사항을 앱 알림으로 전달해요</p></div></div>
-    ${msgs.length?`<ul class="my-msgs">${msgs.map(m=>`<li><p>${esc(m.message)}</p><time>${when(m.created_at)} · ${m.status==='확인'?'매니저 확인':'전송됨'}</time></li>`).join('')}</ul>`:''}
+    ${msgs.length?`<ul class="my-msgs">${msgs.map(m=>`<li><p>${esc(m.message)}</p><time>${when(m.created_at)} · ${m.reply?'답변 완료':m.status==='확인'?'매니저 확인':'전송됨'}</time></li>${m.reply?`<li class="rep"><b>매니저 답변</b><p>${esc(m.reply)}</p>${m.reply_at?`<time>${when(m.reply_at)}</time>`:''}</li>`:''}`).join('')}</ul>`:''}
     <div class="field"><label for="msg">요구사항</label><textarea id="msg" maxlength="500" placeholder="예: 트렁크는 열지 말아주세요.">${esc(S.msgDraft)}</textarea></div>
     <button type="button" class="btn full" id="msg-send" data-act="send-msg" ${S.msgDraft.trim()&&!S.busy?'':'disabled'}>매니저에게 보내기<span class="arr">${ic('send')}</span></button>
   </section>`;
