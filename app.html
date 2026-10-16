@@ -142,6 +142,10 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .my-msgs li{max-width:88%;background:var(--ink);color:#fff;border-radius:14px 14px 3px 14px;padding:8px 12px}
 .my-msgs p{margin:0;font-size:13.5px;white-space:pre-wrap}
 .my-msgs time{font-size:11px;color:#AEB6C4}
+.sd-btn{border:2px solid #C62828;color:#9B1C1C;background:#FFF5F5}.sd-closed{border:2px solid #C62828}
+.sd-card{display:flex;flex-direction:column;gap:12px}
+.sd-und{width:100%;text-align:left;border:1.5px dashed var(--line);background:#fff;border-radius:12px;padding:12px 14px;font-size:15px;font-weight:800;color:var(--ink);cursor:pointer;display:flex;flex-direction:column;gap:2px}
+.sd-und small{font-weight:600;color:var(--sub);font-size:12.5px}.sd-und[aria-pressed="true"]{border:2px solid var(--ink);background:var(--gold-soft)}
 .qp-lab{margin:4px 0 0;font-size:12.5px;font-weight:700;color:var(--sub)}.qp-chips{display:flex;flex-wrap:wrap;gap:6px}
 .qp-chip{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;color:var(--ink);cursor:pointer}.qp-chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
 .my-msgs li.rep{align-self:flex-start;background:#EAF2FB;color:var(--ink);border-radius:14px 14px 14px 3px}.my-msgs li.rep b{display:block;font-size:11.5px;color:#1D3A6E;margin-bottom:2px}.my-msgs li.rep time{color:#6B7A90}
@@ -183,7 +187,7 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .empty{text-align:center;padding:36px 12px;color:var(--sub)}
 
 /* nav */
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border-top:1px solid var(--line);padding:6px 10px calc(env(safe-area-inset-bottom,0px) + 8px);z-index:20}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border-top:1px solid var(--line);padding:6px 10px calc(env(safe-area-inset-bottom,0px) + 8px);z-index:20}
 .nav button{border:0;background:none;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;font-weight:700;color:var(--sub);padding:5px 0;position:relative}
 .nav .ni{width:44px;height:30px;border-radius:999px;display:grid;place-items:center}
 .nav button[aria-current="page"]{color:var(--text)}
@@ -506,28 +510,45 @@ function carBar(label){
   return `<div class="card" style="padding:12px 14px"><p class="sub" style="margin:0 0 8px;font-weight:700">${label||`내 차량 ${cars.length}대 · 눌러서 바꿔 보세요`}</p>
     <div class="car-chips">${cars.map(c=>`<button type="button" class="car-chip" aria-pressed="${c.is_active}" data-act="car-pick" data-id="${c.customer_id}"><b>${esc(c.car_number||'')}</b><small>${esc(c.car_model||'')}${c.complex?` · ${esc(c.complex)}`:''}${c.wash_status&&c.wash_status!=='세차중'?` · ${esc(c.wash_status)}`:''}</small></button>`).join('')}</div></div>`;
 }
-/* ---------- 자주 쓰는 문구 · 당일 일정 변경 (마감 시간 전이면 바로 반영) ---------- */
-const QP=['현재 차량 수리중입니다','오늘 세차하지 말아주세요','일정 변경해 주세요'];
+/* ---------- 당일날짜 변경신청 탭 (달력 → 날짜 → [확인] · 마감 시간 이후 안내 · 미정 + 사유) ---------- */
 const todayJob=()=>{ const t=todayKey(); return S.jobs.find(j=>j.wash_date===t&&j.status==='대기'&&!j.interior_only)||null; };
 const nowHM=()=>{ const d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); };
-const beforeCut=()=>!!S.cutoff&&nowHM()<S.cutoff;
-function qpBox(){
-  const qp=S.qp, tj=todayJob(), t=todayKey(), cut=S.cutoff||'17:00', fast=!!(qp&&tj&&beforeCut()&&S.cutoff);
-  const chips=`<p class="qp-lab">자주 쓰는 문구</p><div class="qp-chips">${QP.map(x=>`<button type="button" class="qp-chip" aria-pressed="${qp===x}" data-act="qp" data-v="${esc(x)}">${esc(x)}</button>`).join('')}<button type="button" class="qp-chip" aria-pressed="${!qp}" data-act="qp" data-v="">✏️ 직접 입력</button></div>`;
-  if(!qp) return chips+`<div class="field"><label for="msg">요구사항</label><textarea id="msg" maxlength="500" placeholder="예: 트렁크는 열지 말아주세요.">${esc(S.msgDraft)}</textarea></div>
-    <button type="button" class="btn full" id="msg-send" data-act="send-msg" ${S.msgDraft.trim()&&!S.busy?'':'disabled'}>매니저에게 보내기<span class="arr">${ic('send')}</span></button>`;
-  const info=tj?(beforeCut()&&S.cutoff?`<p class="state ok">${ic('clock')}<span>오늘 세차 일정이 있어요. 마감 ${cut} 전이라 <b>보내면 세차 일정에 바로 반영</b>되고 담당자에게 긴급 알림이 가요.</span></p>`
-      :`<p class="state warn">${ic('info')}<span>오늘 일정 변경 마감 시간(${cut})이 지났어요. 메시지로 보내면 담당 매니저가 확인해요. 급하시면 담당자에게 직접 연락해 주세요.</span></p>`)
-    :`<p class="note">보내면 담당 매니저가 확인하고 일정을 바꿔 드려요. 세차 당일에는 ${cut}까지 보내면 바로 반영돼요.</p>`;
-  return chips+`<div class="field"><label for="qp-date">언제로 바꿀까요? <b style="color:#B4321E">(꼭 골라 주세요)</b></label><input type="date" id="qp-date" min="${addDays(t,1)}" max="${addDays(t,14)}" value="${esc(S.qpDate||'')}"></div>
-    ${S.qpDate&&parseKey(S.qpDate).getDay()===0?`<p class="state warn">${ic('info')}<span>일요일은 휴무예요. 다른 날짜를 골라 주세요.</span></p>`:''}
-    ${info}
-    <div class="field"><label for="msg">더 남길 말 <span class="sub">(선택)</span></label><textarea id="msg" maxlength="300" placeholder="예: 다음 주 화요일에 찾아와요.">${esc(S.msgDraft)}</textarea></div>
-    <button type="button" class="btn full" id="qp-send" data-act="qp-send" ${S.qpDate&&parseKey(S.qpDate).getDay()!==0&&!S.busy?'':'disabled'}>${fast?'오늘 일정 바로 변경하기':'매니저에게 보내기'}<span class="arr">${ic('send')}</span></button>`;
+const beforeCut=()=>!S.cutoff||nowHM()<S.cutoff;
+const SD_CLOSED='당일변경신청 시간 마감, 담당자에게 전화문의 바랍니다.';
+function samedayView(){
+  const t=todayKey(), tj=todayJob(), cut=S.cutoff||'17:00', open=beforeCut(), und=S.sdSel==='미정';
+  const head=`<div class="appbar"><button type="button" class="icon-btn" data-act="go" data-v="home" aria-label="뒤로">${ic('back')}</button><h1 class="h" style="flex:1;font-size:19px">당일날짜 변경신청</h1></div>`;
+  if(!open) return head+`<section class="card sd-card"><p class="state warn sd-closed">${ic('info')}<span><b>${SD_CLOSED}</b></span></p><p class="note">당일 변경신청은 매일 ${cut}까지 받아요.</p></section>`;
+  if(!tj) return head+`<section class="card sd-card"><p class="state">${ic('info')}<span>오늘은 세차 일정이 없어요. 당일날짜 변경신청은 세차하는 날 ${cut}까지 할 수 있어요.</span></p>
+    <p class="note">다른 날 일정을 바꾸려면 홈의 [세차 날짜 변경 요청]을 이용해 주세요.</p></section>`;
+  const y=Number(t.slice(0,4)), m=Number(t.slice(5,7))-1, base=new Date(y,m+(S.sdMonth||0),1), Y=base.getFullYear(), M=base.getMonth();
+  const first=base.getDay(), days=new Date(Y,M+1,0).getDate(), max=addDays(t,14), have=new Set(S.jobs.map(j=>j.wash_date));
+  let cells=WD.map((w,i)=>`<span class="wd ${i===0?'sun':''}">${w}</span>`).join('');
+  for(let i=0;i<first;i++) cells+='<span></span>';
+  for(let d=1;d<=days;d++){ const k=`${Y}-${pad(M+1)}-${pad(d)}`, sun=new Date(Y,M,d).getDay()===0;
+    let cls='past',lab='',ok=false;
+    if(k===t){cls='wash base';lab='오늘';}
+    else if(k<t||k>max){cls='past';}
+    else if(sun){cls='closed';lab='휴무';}
+    else if(have.has(k)){cls='wash';lab='세차';}
+    else {cls='free';ok=true;}
+    if(S.sdSel===k){cls+=' sel';lab='여기로';}
+    cells+=`<button type="button" class="day ${cls}" ${ok?`data-act="sd-day" data-k="${k}"`:'disabled'} aria-label="${kdate(k)}${lab?' '+lab:''}">${d}${lab?`<small>${lab}</small>`:''}</button>`; }
+  const canPrev=(S.sdMonth||0)>0, canNext=max.slice(0,7)>`${Y}-${pad(M+1)}`;
+  return head+`<section class="card sd-card">
+    <p class="state ok">${ic('clock')}<span>오늘(${kdate(t)}) 세차를 다른 날로 바꿀 수 있어요. <b>${cut}까지</b> 신청하면 바로 바뀌어요.</span></p>
+    <div class="row" style="justify-content:space-between"><button type="button" class="icon-btn" data-act="sd-month" data-d="-1" ${canPrev?'':'disabled'} aria-label="이전 달">${ic('back')}</button><b>${Y}년 ${M+1}월</b><button type="button" class="icon-btn" data-act="sd-month" data-d="1" ${canNext?'':'disabled'} aria-label="다음 달" style="transform:scaleX(-1)">${ic('back')}</button></div>
+    <div class="cal" role="group" aria-label="바꿀 날짜 고르기">${cells}</div>
+    <div class="legend"><span><i class="lg base"></i>오늘 세차</span><span><i class="lg open"></i>다른 세차</span><span><i class="lg sel"></i>바꿀 날짜</span></div>
+    <button type="button" class="sd-und" aria-pressed="${und}" data-act="sd-day" data-k="미정">📝 미정 <small>오래 세차를 못 하는 사정이 있어요</small></button>
+    ${und?`<div class="field"><label for="sd-why">사유 <b style="color:#B4321E">(꼭 적어 주세요)</b></label><textarea id="sd-why" maxlength="300" placeholder="예: 해외 출장으로 한 달 동안 차를 쓰지 않아요.">${esc(S.sdWhy||'')}</textarea></div>
+      <p class="note">확인을 누르면 오늘 세차는 쉬어 가고, 다시 시작할 날은 담당자가 연락드려요.</p>`
+      :S.sdSel?`<p class="state">${ic('cal')}<span>${kdate(t)} → <b>${kdate(S.sdSel)}</b></span></p>`:'<p class="note">바꿀 날짜를 누르거나, 날짜를 정하기 어려우면 [미정]을 눌러 주세요. (2주 안 · 일요일 휴무)</p>'}
+    <button type="button" class="btn full" id="sd-ok" data-act="sd-ok" ${S.sdSel&&(!und||(S.sdWhy||'').trim())&&!S.busy?'':'disabled'}>확인<span class="arr">${ic('check')}</span></button>
+  </section>`;
 }
 function homeView(){
   const p=S.profile, j=currentJob();
-  const msgs=S.reqs.filter(r=>r.req_type==='msg').slice(0,2);
   const ist=interiorState();
   return `<div class="appbar">${logo()}<button type="button" class="icon-btn" data-act="go" data-v="alerts" aria-label="알림 ${unread()}개">${ic('bell')}${unread()?`<span class="badge">${unread()}</span>`:''}</button></div>
   <div><p class="sub">${kdate(todayKey())}</p><h1 class="h">${esc(p.name||p.account_name)} 님, 내 차 세차 현황이에요</h1></div>
@@ -541,11 +562,6 @@ function homeView(){
     <div class="row"><span class="bubble">${ic('car')}</span><div class="grow"><h2 class="h">${esc(p.car_number||'')}</h2><p class="sub">${esc([p.car_model,p.car_color].filter(Boolean).join(' · '))}${p.car_model||p.car_color?' · ':''}${esc([p.complex,p.unit].filter(Boolean).join(' '))}</p></div></div>
     <dl class="kv"><dt>세차 종류</dt><dd>${j&&j.interior?'외부 + 실내세차':'외부 세차'}</dd></dl>
     ${ist||interiorButton()}
-  </section>
-  <section class="card" aria-labelledby="mgr-h">
-    <div class="row"><span class="bubble">${ic('msg')}</span><div class="grow"><h2 class="h" id="mgr-h">담당 매니저에게 메시지</h2><p class="sub">요청사항을 앱 알림으로 전달해요</p></div></div>
-    ${msgs.length?`<ul class="my-msgs">${msgs.map(m=>`<li><p>${esc(m.message)}</p><time>${when(m.created_at)} · ${m.reply?'답변 완료':m.status==='확인'?'매니저 확인':'전송됨'}</time></li>${m.reply?`<li class="rep"><b>매니저 답변</b><p>${esc(m.reply)}</p>${m.reply_at?`<time>${when(m.reply_at)}</time>`:''}</li>`:''}`).join('')}</ul>`:''}
-    ${qpBox()}
   </section>`;
 }
 function planCard(){
@@ -590,6 +606,7 @@ function planCard(){
     ${total?`<div class="pass">${Array.from({length:total},(_,i)=>`<span class="${i<used?'used':''}">${i+1}회</span>`).join('')}</div>`:''}
     ${hasWd()?`<div class="row" style="flex-wrap:wrap;gap:8px"><span class="wd-chip">${ic('cal')}${wdLine()}</span><span class="sub">지정 세차 요일${baseKey?' · 다음 회차 '+kdate(baseKey):''}</span></div>`:''}
     ${state}
+    ${!S.dayEdit?`<button type="button" class="btn2 sd-btn" data-act="go" data-v="sameday">${ic('clock')}당일날짜 변경신청${todayJob()?` <small style="font-weight:600;opacity:.8">· 오늘 ${esc(S.cutoff||'17:00')}까지</small>`:''}</button>`:''}
     ${!S.dayEdit&&!pend?(baseKey?`<button type="button" class="btn2 gold" data-act="day-edit">${ic('cal')}세차 날짜 변경 요청</button>`:`<p class="note">다음 회차 일정이 잡히면 날짜 변경을 요청할 수 있어요.</p>`):''}
     ${picker}
   </section>`;
@@ -712,12 +729,12 @@ function render(){
   else if(!S.profile.linked){ html=pendingView(); }
   else {
     showNav=true;
-    html= S.view==='alerts'?alertsView(): S.view==='me'?meView(): S.view==='interior'?interiorView(): homeView();
+    html= S.view==='alerts'?alertsView(): S.view==='me'?meView(): S.view==='interior'?interiorView(): S.view==='sameday'?samedayView(): homeView();
   }
   scr.innerHTML=(STAFF?staffBar():'')+html;
   nav.hidden=!showNav; shell.classList.toggle('with-nav',showNav);
   if(showNav){
-    nav.innerHTML=[['home','홈','home'],['alerts','알림','bell'],['me','내 정보','user']].map(([k,l,i])=>`<button type="button" data-act="go" data-v="${k}" ${S.view===k||(k==='home'&&S.view==='interior')?'aria-current="page"':''}><span class="ni">${ic(i)}</span>${l}${k==='alerts'&&unread()?'<span class="dot"></span>':''}</button>`).join('');
+    nav.innerHTML=[['home','홈','home'],['sameday','당일 변경','clock'],['alerts','알림','bell'],['me','내 정보','user']].map(([k,l,i])=>`<button type="button" data-act="go" data-v="${k}" ${S.view===k||(k==='home'&&S.view==='interior')?'aria-current="page"':''}><span class="ni">${ic(i)}</span>${l}${k==='alerts'&&unread()?'<span class="dot"></span>':''}</button>`).join('');
   }
   if(focusId){ const el=document.getElementById(focusId); if(el&&(el.tagName==='INPUT'||el.tagName==='TEXTAREA')) el.focus({preventScroll:true}); }
   renderLayer();
@@ -807,26 +824,23 @@ document.addEventListener('click',async e=>{
     case 'staff-view': S.staffCid=Number(t.dataset.id); try{sessionStorage.setItem(STAFF_VIEW_KEY,String(S.staffCid));}catch(_){} S.profile=null; S.view='home'; window.scrollTo(0,0); render(); await loadAll(); break;
     case 'reload': await loadAll(); toast('최신 정보로 바꿨어요.'); break;
     case 'go':
-      S.view=t.dataset.v; S.dayEdit=false; S.daySel=null; window.scrollTo(0,0);
+      S.view=t.dataset.v; S.dayEdit=false; S.daySel=null; window.scrollTo(0,0); if(S.view==='sameday'){ S.sdSel=null; S.sdMonth=0; }
       if(S.view==='interior'){ S.cDay=null; S.cMonth=0; render(); loadSlots(); }
       else if(S.view==='alerts'){ render(); if(unread()){ try{ await rpc('mark_my_notifications_read'); setTimeout(()=>{ S.notes.forEach(n=>n.is_read=true); render(); },1500);}catch(_){}} }
       else render();
       break;
-    case 'qp': S.qp=t.dataset.v||null; if(!S.qp) S.qpDate=''; render(); if(!S.qp) setTimeout(()=>{const m=$('#msg'); if(m) m.focus();},30); break;
-    case 'qp-send': {
-      const qp=S.qp, d=S.qpDate, extra=S.msgDraft.trim(); if(!qp||!d) break;
-      const reason=qp+(extra?' · '+extra:'');
-      if(todayJob()&&beforeCut()){
-        S.dialog={icon:'cal',title:'오늘 세차 일정을 바꿀까요?',big:`${kdate(todayKey())} → ${kdate(d)}`,
-          body:`'${qp}' · 확인을 누르면 세차 일정에 바로 반영되고 담당자에게 긴급 알림이 가요.`,
-          run:()=>rpc('request_sameday_change',{p_reason:reason,p_target_date:d}).then(()=>{S.qp=null;S.qpDate='';S.msgDraft='';}),
-          ok:'오늘 세차 일정을 바꿨어요.'};
-        renderLayer(); break;
-      }
-      S.busy=true; render();
-      try{ await rpc('submit_customer_request',{p_type:'msg',p_message:`${qp} · 바꿀 날짜: ${kdate(d)}${extra?' · '+extra:''}`}); kickPush(); S.qp=null; S.qpDate=''; S.msgDraft=''; S.busy=false; toast('담당 매니저에게 보냈어요.'); await loadAll(true); }
-      catch(err){ S.busy=false; render(); toast(friendly(err),true); }
-      break;
+    case 'sd-month': S.sdMonth=Math.max(0,Math.min(1,(S.sdMonth||0)+Number(t.dataset.d))); render(); break;
+    case 'sd-day': S.sdSel=S.sdSel===t.dataset.k&&t.dataset.k==='미정'?null:t.dataset.k; render(); if(S.sdSel==='미정') setTimeout(()=>{const m=$('#sd-why'); if(m) m.focus();},30); break;
+    case 'sd-ok': {
+      const d=S.sdSel, why=(S.sdWhy||'').trim(); if(!d) break;
+      if(!beforeCut()){ S.sdSel=null; render(); toast(SD_CLOSED,true); break; }
+      if(d==='미정'){ if(!why) break;
+        S.dialog={icon:'cal',title:'오늘 세차를 미정으로 할까요?',big:`${kdate(todayKey())} · 미정`,body:`사유: ${why}\n확인을 누르면 오늘 세차는 쉬어 가고, 담당자에게 알림이 가요.`,
+          run:()=>rpc('request_sameday_undecided',{p_reason:why}).then(()=>{S.sdSel=null;S.sdWhy='';S.view='home';kickPush();}),ok:'담당자에게 전달했어요.'};
+        renderLayer(); break; }
+      S.dialog={icon:'cal',title:'오늘 세차 날짜를 바꿀까요?',big:`${kdate(todayKey())} → ${kdate(d)}`,body:'확인을 누르면 세차 일정이 바로 바뀌고, 담당자에게 알림이 가요.',
+        run:()=>rpc('request_sameday_change',{p_reason:'당일날짜 변경신청',p_target_date:d}).then(()=>{S.sdSel=null;S.view='home';kickPush();}),ok:'세차 날짜를 바꿨어요.'};
+      renderLayer(); break;
     }
     case 'send-msg': {
       const v=S.msgDraft.trim(); if(!v) break;
@@ -871,7 +885,7 @@ document.addEventListener('click',async e=>{
 document.addEventListener('input',e=>{
   const id=e.target.id;
   if(id==='msg'){ S.msgDraft=e.target.value; const b=$('#msg-send'); if(b) b.disabled=!S.msgDraft.trim()||S.busy; }
-  if(id==='qp-date'){ S.qpDate=e.target.value; render(); }
+  if(id==='sd-why'){ S.sdWhy=e.target.value; const b=$('#sd-ok'); if(b) b.disabled=!S.sdWhy.trim()||S.busy; }
   if(id==='su-phone'||id==='rl-phone'){ e.target.value=fmtPhone(e.target.value); }
   if(id==='su-id'){ e.target.value=e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,''); }
 });
