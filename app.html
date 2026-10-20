@@ -92,6 +92,8 @@ h2.h{font-size:16px;font-weight:700;margin:0}
 .state{margin:0;display:flex;align-items:flex-start;gap:8px;font-size:13.5px;font-weight:700;background:var(--gold-soft);color:#5E4A16;border-radius:12px;padding:11px 12px}
 .state.ok{background:var(--ok);color:var(--ok-ink)}
 .state.warn{background:#F8E3DD;color:#7A2E1C}
+.card.unpaid{border:2px solid #D32F2F;box-shadow:0 0 0 3px rgba(211,47,47,.12)}
+.unpaid-tag{margin:0;display:flex;align-items:center;gap:6px;font-size:14px;font-weight:800;color:#C62828;background:#FDECEC;border-radius:10px;padding:9px 12px}
 .state svg{width:18px;height:18px;margin-top:1px}
 
 /* forms */
@@ -385,6 +387,8 @@ async function loadAll(silent){
       try{ const ct=await rpc('get_my_interior_contract'); S.icon=(ct&&ct[0])||null; }catch(_){ S.icon=null; }
       if(!STAFF){ try{ S.pwInitial=!!(await rpc('my_pw_initial')); }catch(_){ S.pwInitial=false; }
         try{ S.cars=await rpc('get_my_cars')||[]; }catch(_){ S.cars=[]; } }
+      // 지난달까지 안 낸 요금이 있으면 정기권 칸을 빨갛게 (71 SQL 전이면 표시 안 함)
+      if(!STAFF){ try{ S.unpaid=!!(await rpc('get_my_unpaid')); }catch(_){ S.unpaid=false; } }
     }
     S.loadErr='';
   }catch(e){ S.loadErr=friendly(e); if(!silent) toast(S.loadErr,true); }
@@ -609,7 +613,8 @@ function planCard(){
       <p class="note">변경은 담당 매니저가 확인 후 적용됩니다. 고른 회차만 바뀌고, 다른 회차는 그대로예요.</p>
       <div style="display:flex;gap:10px"><button type="button" class="btn2" style="flex:1" data-act="day-cancel">취소</button><button type="button" class="btn" style="flex:1.4" data-act="day-apply" ${S.daySel?'':'disabled'}>변경 요청<span class="arr">${ic('arrow')}</span></button></div>`;
   }
-  return `<section class="card" aria-label="정기권">
+  return `<section class="card${S.unpaid?' unpaid':''}" aria-label="정기권${S.unpaid?' · 요금 미납':''}">
+    ${S.unpaid?`<p class="unpaid-tag">${ic('info')}<span>요금미납 - 관리자에게 문의</span></p>`:''}
     <div class="row"><span class="bubble">${ic('clock')}</span><div class="grow"><h2 class="h">${esc(planName())}</h2><p class="sub">${total?`이번 달 ${total}회 중 ${Math.min(used,total)}회 이용`:`이번 달 ${used}회 이용`}</p></div></div>
     ${total?`<div class="pass">${Array.from({length:total},(_,i)=>`<span class="${i<used?'used':''}">${i+1}회</span>`).join('')}</div>`:''}
     ${hasWd()?`<div class="row" style="flex-wrap:wrap;gap:8px"><span class="wd-chip">${ic('cal')}${wdLine()}</span><span class="sub">지정 세차 요일${baseKey?' · 다음 회차 '+kdate(baseKey):''}</span></div>`:''}
