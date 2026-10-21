@@ -313,7 +313,7 @@ function friendly(err){
   if(/[가-힣]/.test(m)) return m;
   return '문제가 생겼어요. 잠시 후 다시 시도해 주세요.';
 }
-const STAFF_READ={get_my_profile:'staff_view_profile',get_my_jobs:'staff_view_jobs',get_my_notifications:'staff_view_notifications',get_my_requests:'staff_view_requests',list_my_interior_slots:'staff_view_slots',get_my_interior_price:'staff_view_interior_price',get_my_interior_contract:'staff_view_interior_contract'};
+const STAFF_READ={get_my_profile:'staff_view_profile',get_my_jobs:'staff_view_jobs',get_my_notifications:'staff_view_notifications',get_my_requests:'staff_view_requests',list_my_interior_slots:'staff_view_slots',get_my_interior_price:'staff_view_interior_price',get_my_interior_contract:'staff_view_interior_contract',get_my_unpaid:'staff_view_unpaid',get_my_next_wash:'staff_view_next_wash'};
 async function rpc(name,args){
   if(STAFF){
     if(Date.now()>=STAFF.exp){ S.staffExpired=true; render(); throw new Error('관리자 보기 시간이 끝났어요.'); }
@@ -387,8 +387,10 @@ async function loadAll(silent){
       try{ const ct=await rpc('get_my_interior_contract'); S.icon=(ct&&ct[0])||null; }catch(_){ S.icon=null; }
       if(!STAFF){ try{ S.pwInitial=!!(await rpc('my_pw_initial')); }catch(_){ S.pwInitial=false; }
         try{ S.cars=await rpc('get_my_cars')||[]; }catch(_){ S.cars=[]; } }
-      // 지난달까지 안 낸 요금이 있으면 정기권 칸을 빨갛게 (71 SQL 전이면 표시 안 함)
-      if(!STAFF){ try{ S.unpaid=!!(await rpc('get_my_unpaid')); }catch(_){ S.unpaid=false; } }
+      // 납부일이 지났는데 안 낸 달이 있으면 정기권 칸을 빨갛게 (이번 달 · 지난달 모두 · 관리자 수금관리 '미납'과 같은 기준)
+      try{ S.unpaid=!!(await rpc('get_my_unpaid')); }catch(_){ S.unpaid=false; }
+      // 다음 세차일: 불러온 기간 밖이어도 회차관리에서 잡은 가장 가까운 날짜
+      try{ S.nextWash=await rpc('get_my_next_wash')||null; }catch(_){ S.nextWash=null; }
     }
     S.loadErr='';
   }catch(e){ S.loadErr=friendly(e); if(!silent) toast(S.loadErr,true); }
@@ -458,13 +460,18 @@ function currentJob(){
   const t=todayKey();
   return S.jobs.find(j=>j.wash_date===t) || S.jobs.find(j=>j.wash_date>t && j.status==='대기') || null;
 }
-function nextFutureJob(){ const t=todayKey(); return S.jobs.find(j=>j.wash_date>t && j.status==='대기')||null; }
+function nextFutureJob(){ const t=todayKey(); return S.jobs.find(j=>j.wash_date>t && j.status==='대기')||(S.nextWash&&S.nextWash>t?{wash_date:S.nextWash,status:'대기'}:null); }
 function stepper(idx){
   const L=['예약 확정','세차 대기','세차 완료'];
   return `<div class="steps" aria-label="진행 단계">${L.map((l,i)=>`<div class="step ${i<=idx?'on':''} ${i===idx&&idx<2?'now':''}"><span class="b">${i<idx||idx===2?ic('check'):''}</span>${l}</div>`).join('')}</div>`;
 }
 function heroCard(){
   const p=S.profile, j=currentJob(), t=todayKey();
+  if(!j&&S.nextWash&&S.nextWash>=t){
+    return `<article class="hero"><span class="pill">예약 확정</span>
+      <div class="when">${kdate(S.nextWash)}</div>
+      <p class="detail">이 날 세차를 진행해요. 끝나면 완료 알림을 보내드려요.</p>${stepper(0)}</article>`;
+  }
   if(!j){
     return `<article class="hero"><span class="pill">${ic('cal',14)}다음 세차</span>
       <div class="when">일정을 준비하고 있어요</div>
@@ -559,6 +566,15 @@ function samedayView(){
     <button type="button" class="btn full" id="sd-ok" data-act="sd-ok" ${S.sdSel&&(!und||(S.sdWhy||'').trim())&&!S.busy?'':'disabled'}>확인<span class="arr">${ic('check')}</span></button>
   </section>`;
 }
+function msgCard(){
+  const msgs=S.reqs.filter(r=>r.req_type==='msg').slice(0,2);
+  return `<section class="card" aria-labelledby="mgr-h">
+    <div class="row"><span class="bubble">${ic('msg')}</span><div class="grow"><h2 class="h" id="mgr-h">담당 매니저에게 메시지</h2><p class="sub">요청사항을 앱 알림으로 전달해요</p></div></div>
+    ${msgs.length?`<ul class="my-msgs">${msgs.map(m=>`<li><p>${esc(m.message)}</p><time>${when(m.created_at)} · ${m.reply?'답변 완료':m.status==='확인'?'매니저 확인':'전송됨'}</time></li>${m.reply?`<li class="rep"><b>매니저 답변</b><p>${esc(m.reply)}</p>${m.reply_at?`<time>${when(m.reply_at)}</time>`:''}</li>`:''}`).join('')}</ul>`:''}
+    <div class="field"><label for="msg">요구사항</label><textarea id="msg" maxlength="500" placeholder="예: 트렁크는 열지 말아주세요.">${esc(S.msgDraft)}</textarea></div>
+    <button type="button" class="btn full" id="msg-send" data-act="send-msg" ${S.msgDraft.trim()&&!S.busy?'':'disabled'}>매니저에게 보내기<span class="arr">${ic('send')}</span></button>
+  </section>`;
+}
 function homeView(){
   const p=S.profile, j=currentJob();
   const ist=interiorState();
@@ -574,7 +590,8 @@ function homeView(){
     <div class="row"><span class="bubble">${ic('car')}</span><div class="grow"><h2 class="h">${esc(p.car_number||'')}</h2><p class="sub">${esc([p.car_model,p.car_color].filter(Boolean).join(' · '))}${p.car_model||p.car_color?' · ':''}${esc([p.complex,p.unit].filter(Boolean).join(' '))}</p></div></div>
     <dl class="kv"><dt>세차 종류</dt><dd>${j&&j.interior?'외부 + 실내세차':'외부 세차'}</dd></dl>
     ${ist||interiorButton()}
-  </section>`;
+  </section>
+  ${msgCard()}`;
 }
 function planCard(){
   const p=S.profile, t=todayKey(), ym=t.slice(0,7);
