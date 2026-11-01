@@ -425,8 +425,7 @@ function authView(){
     <p class="form-err" id="auth-err" role="alert">${esc(S.authErr)}</p>
     <button class="btn full" type="submit" ${S.busy?'disabled':''}>${S.busy?'처리 중...':su?'가입하기':'로그인'}<span class="arr">${ic('arrow')}</span></button>
   </form>
-  <p class="note" style="text-align:center">${su?'가입하기를 누르면 아이디는 <b>휴대폰 번호</b>, 처음 비밀번호는 <b>1234</b>로 만들어져요.<br>로그인해서 비밀번호를 바꾸면, 관리자 승인 후 이용하실 수 있어요.':'계약 고객 아이디는 <b>휴대폰 번호</b>(숫자만), 처음 비밀번호는 <b>1234</b>예요.<br>로그인한 뒤 [내 정보]에서 비밀번호를 꼭 바꿔 주세요. 로그인이 안 되면 담당 매니저에게 문의해 주세요.'}</p>
-  <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지로</a></p>`;
+  <p class="note" style="text-align:center">${su?'가입하기를 누르면 아이디는 <b>휴대폰 번호</b>, 처음 비밀번호는 <b>1234</b>로 만들어져요.<br>로그인해서 비밀번호를 바꾸면, 관리자 승인 후 이용하실 수 있어요.':'계약 고객 아이디는 <b>휴대폰 번호</b>(숫자만), 처음 비밀번호는 <b>1234</b>예요.<br>로그인한 뒤 [내 정보]에서 비밀번호를 꼭 바꿔 주세요. 로그인이 안 되면 담당 매니저에게 문의해 주세요.'}</p>`;
 }
 
 /* ---------- 화면: 처음 로그인 · 비밀번호 재설정 (3회차 11번) ---------- */
@@ -454,7 +453,7 @@ function pendingView(){
 }
 
 /* ---------- 화면: 홈 ---------- */
-function logo(){return `<a class="logo" href="/" aria-label="오토핸즈 홈페이지"><span class="mark">${ic('drop')}</span><span><b>AUTOHANDS</b><small>PREMIUM CAR WASH</small></span></a>`;}
+function logo(){return `<a class="logo" href="/app" aria-label="오토핸즈"><span class="mark">${ic('drop')}</span><span><b>AUTOHANDS</b><small>PREMIUM CAR WASH</small></span></a>`;}
 const unread=()=>S.notes.filter(n=>!n.is_read).length;
 function currentJob(){
   const t=todayKey();
@@ -722,7 +721,7 @@ function meView(){
   ${pushCard(false)}
   ${installCard()}
   <button type="button" class="btn2" data-act="logout">${ic('logout')}로그아웃</button>
-  <p style="text-align:center;margin:0"><a class="link" href="/">오토핸즈 홈페이지</a> · <button type="button" class="link" data-act="policy">개인정보처리방침</button></p>`;
+  <p style="text-align:center;margin:0"><button type="button" class="link" data-act="policy">개인정보처리방침</button></p>`;
 }
 
 /* ---------- 관리자 보기: 고객 고르기 ---------- */
